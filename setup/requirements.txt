@@ -1,0 +1,13 @@
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+pandas
+orjson>=3.9
+pyzmq>=25
+fastapi>=0.110
+uvicorn[standard]>=0.29
+psutil>=5.9
+
+# Airfoil polar engine (Propulsion Model tab) — falls back to thin-airfoil theory if missing
+neuralfoil
+aerosandbox

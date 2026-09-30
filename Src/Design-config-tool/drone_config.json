@@ -1,0 +1,15 @@
+{
+  "structural_mass": 0.6,
+  "payload_mass": 0.1,
+  "max_empty_weight": 20,
+  "Motor_idx": 2,
+  "Battery_idx": 0,
+  "num_batteries": 1,
+  "num_motors": 4,
+  "bank_angle": 0,
+  "required_twr": 2,
+  "flight_twr": 1,
+  "avionics_power": 6,
+  "g": 9.81,
+  "voltage_check": false
+}

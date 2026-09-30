@@ -1,0 +1,77 @@
+{
+  "sim": {
+    "sim_rate": 400,
+    "seed": 1
+  },
+  "actuator": {
+    "enabled": false,
+    "motor_tau_s": 0.07
+  },
+  "sitl": {
+    "udp_port": 9002,
+    "magic": 18458,
+    "print_every": 1000,
+    "verbose": false,
+    "preserve_eeprom": true
+  },
+  "logging": {
+    "enabled": true,
+    "path": "Results/run.csv"
+  },
+  "telemetry": {
+    "enabled": true,
+    "endpoint": "tcp://127.0.0.1:9010",
+    "rate_hz": 50
+  },
+  "drone_model": "generic-quad",
+  "param_file": "sitl-ground-truth.parm",
+  "environment": {
+    "rho": 1.225,
+    "dryden": {
+      "enabled": true,
+      "W20_ms": 4,
+      "wind_heading_deg": 45,
+      "horizontal_wind_speed_ms": 2,
+      "vertical_wind_speed_ms": 0,
+      "dt_filt": 0.1,
+      "seeds": [
+        23341,
+        23342,
+        23343,
+        23344
+      ]
+    }
+  },
+  "initial": {
+    "pos_lla": [
+      51.50347,
+      -2.531643,
+      45.7
+    ],
+    "pos_ned": [
+      0,
+      0,
+      0
+    ],
+    "v_body": [
+      0,
+      0,
+      0
+    ],
+    "euler": [
+      0,
+      0,
+      0
+    ],
+    "ang_rates": [
+      0,
+      0,
+      0
+    ]
+  },
+  "viz": {
+    "enabled": false,
+    "fps": 30,
+    "span_m": 20
+  }
+}

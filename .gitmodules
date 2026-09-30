@@ -1,0 +1,3 @@
+[submodule "Src/Propulsion-model/aerodynamic_model/pyBEMT"]
+	path = Src/Propulsion-model/aerodynamic_model/pyBEMT
+	url = https://github.com/kegiljarhus/pyBEMT.git

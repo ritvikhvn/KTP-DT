@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KTP Digital Twin System</title>
+<link rel="stylesheet" href="/vendor/uplot/uPlot.min.css">
+<link rel="stylesheet" href="/styles.css">
+<!-- uPlot UMD global (fast 2D plots) — vendored, no network. -->
+<script src="/vendor/uplot/uPlot.iife.min.js"></script>
+<!-- Resolve OrbitControls' bare `import ... from "three"` to the vendored module. -->
+<script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+</head>
+<body><header><h1>KTP Digital Twin System</h1><nav><button data-tab="simulator" class="active">Simulator</button><button data-tab="flight">Flight Time</button><button data-tab="propulsion">Propulsion Model</button></nav></header>
+<div class="statusbar" id="statusbar">
+  <div class="stat"><span class="lbl">Realtime</span><span class="val" id="st-rt">—</span></div>
+  <div class="stat"><span class="lbl">CPU</span><span class="val" id="st-cpu">—</span></div>
+  <div class="stat"><span class="lbl">FPS</span><span class="val" id="st-fps">—</span></div>
+  <div class="stat"><span class="lbl">Sim time</span><span class="val" id="st-t">—</span></div>
+  <div class="stat"><span class="lbl">Connected</span><span class="val" id="st-conn">—</span></div>
+</div>
+<main>
+<section id="simulator" class="tab">
+<h2>Simulator</h2>
+<nav class="subnav"><button data-subtab="setup" class="active">Setup</button><button data-subtab="live">Live Data</button></nav>
+<section id="setup" class="subtab">
+  <div class="split">
+    <div class="card"><h3>SITL launch</h3>
+      <div class="fields">
+        <label class="span-all">Parameter file <select id="param-file"></select></label>
+        <div class="field-action span-all"><label>Host IP <input id="host-ip" value="127.0.0.1"></label><button id="detect-ip">Detect IP</button></div>
+        <label>ArduPilot dir (WSL) <input id="ardupilot-dir" placeholder="~/ardupilot"></label>
+        <label>Venv activate (WSL) <input id="venv-activate" placeholder="~/venv-ardupilot/bin/activate"></label>
+        <label class="checkbox span-all"><input type="checkbox" id="wipe-eeprom"> Wipe EEPROM on launch (-w)</label>
+      </div>
+      <div class="actions"><button id="launch" class="primary">Launch</button><button id="stop" class="danger">Stop</button></div>
+      <p id="status" class="status-line" aria-live="polite">Stopped</p>
+    </div>
+    <div class="card"><h3>Startup config</h3>
+      <label><span class="sr-only">Startup config</span><textarea id="startup-config" rows="18" spellcheck="false"></textarea></label>
+      <div class="actions end"><button id="save-config">Save config</button></div>
+    </div>
+  </div>
+</section>
+<section id="live" class="subtab hidden">
+<div class="row"><span class="muted small" id="live-status" aria-live="polite">disconnected</span><button id="btn-live-clear" class="ghost">Clear</button></div>
+<div class="cards"><output id="altitude"><span class="k">Altitude</span><span class="v">—</span></output><output id="wind"><span class="k">Wind NED</span><span class="v">—</span></output><output id="accel"><span class="k">Accel</span><span class="v">—</span></output><output id="gyro"><span class="k">Gyro</span><span class="v">—</span></output></div>
+<div class="live-grid">
+  <div class="card"><h3>Accel (body) m/s&sup2;</h3><div id="plot-accel" class="plot"></div></div>
+  <div class="card"><h3>Gyro (body) rad/s</h3><div id="plot-gyro" class="plot"></div></div>
+  <div class="card"><h3>Altitude (m)</h3><div id="plot-alt" class="plot"></div></div>
+  <div class="card"><h3>Wind NED (m/s)</h3><div id="plot-wind" class="plot"></div></div>
+  <div class="card"><h3>3D trajectory (E / N / Up) — drag to orbit, scroll to zoom</h3><div id="plot-3d" class="plot3d"></div></div>
+</div>
+</section>
+</section>
+<section id="flight" class="tab hidden"><h2>Flight Time</h2>
+<div class="card-grid">
+<div class="card"><h3>Aircraft Configuration</h3>
+<div class="fields"><label>Structural mass (kg) <input id="structural-mass" type="number" step="0.001" value="0.6"></label><label>Payload mass (kg) <input id="payload-mass" type="number" step="0.01" value="0.1"></label><label>Max empty weight (kg) <input id="max-empty-weight" type="number" step="0.1" value="20"></label></div>
+</div>
+<div class="card"><h3>Motor &amp; Battery</h3>
+<div class="fields"><label>Motor <select id="motor"></select></label><label>Motors <input id="motor-count" type="number" value="4" min="1"></label><label>Battery <select id="battery"></select></label><label>Batteries <input id="battery-count" type="number" value="1" min="1"></label></div>
+</div>
+<div class="card"><h3>Flight Parameters</h3>
+<div class="fields"><label>Bank angle (&deg;) <input id="bank-angle" type="number" value="0"></label><label>Required T/W <input id="required-twr" type="number" step="0.1" value="2"></label><label>Flight T/W <input id="flight-twr" type="number" step="0.1" value="1"></label><label>Avionics (W) <input id="avionics-power" type="number" step="0.1" value="6"></label></div>
+</div>
+</div>
+<div class="actions"><button id="calculate" class="primary">Calculate</button></div>
+<div id="flight-error" class="error" aria-live="polite"></div>
+<div class="cards" id="flight-result"></div>
+</section>
+<section id="propulsion" class="tab hidden">
+<h2>Propulsion Model</h2>
+<nav class="subnav"><button data-subtab="motor-model" class="active">Motor Model</button><button data-subtab="propeller-model">Propeller Model</button></nav>
+
+<section id="motor-model" class="subtab">
+  <div class="card"><h3>Motor Parameters</h3>
+    <div class="fields"><label>Kv (RPM/V) <input id="mm-kv" type="number" step="1" value="920"></label><label>Rm (&Omega;) <input id="mm-rm" type="number" step="0.001" value="0.115"></label><label>I&#8320; (A) <input id="mm-i0" type="number" step="0.01" value="0.8"></label><label>k_iron <input id="mm-kiron" type="number" step="0.0001" value="0"></label><label>V_batt (V) <input id="mm-vbatt" type="number" step="0.1" value="14.8"></label><label>ESC efficiency <input id="mm-etaesc" type="number" step="0.01" min="0" max="1" value="0.85"></label><label>Throttle (0&ndash;1) <input id="mm-throttle" type="number" step="0.01" min="0" max="1" value="0.7"></label><label>Winding temp (&deg;C) <input id="mm-twind" type="number" step="1" value="20"></label><label>Load torque (Nm) <input id="mm-load" type="number" step="0.001" value="0.05"></label></div>
+  </div>
+  <div class="actions"><button id="mm-run" class="primary">Calculate</button></div>
+  <div id="mm-error" class="error" aria-live="polite"></div>
+  <div class="cards" id="mm-result"></div>
+  <div class="live-grid">
+    <div class="card"><h3>RPM vs throttle</h3><div id="mm-plot-rpm" class="plot"></div></div>
+    <div class="card"><h3>Current (A) vs throttle</h3><div id="mm-plot-current" class="plot"></div></div>
+    <div class="card"><h3>Torque (Nm) vs throttle</h3><div id="mm-plot-torque" class="plot"></div></div>
+    <div class="card"><h3>Motor efficiency vs throttle</h3><div id="mm-plot-eta" class="plot"></div></div>
+  </div>
+</section>
+
+<section id="propeller-model" class="subtab hidden">
+  <div class="card"><h3>Propeller Geometry</h3>
+    <div class="fields"><label>Diameter (in) <input id="pm-d" type="number" step="0.5" value="10"></label><label>Pitch (in) <input id="pm-p" type="number" step="0.5" value="4.5"></label><label>Blades <input id="pm-blades" type="number" min="2" max="6" value="2"></label><label>Airfoil <input id="pm-airfoil" list="pm-airfoil-list" placeholder="clark_y" onfocus="this.select()"><datalist id="pm-airfoil-list"><option value="clark_y"><option value="naca2412"><option value="naca4412"><option value="naca0012"><option value="naca23012"><option value="goe795"><option value="e63"></datalist></label></div>
+    <p class="muted small">Airfoil accepts any name NeuralFoil/aerosandbox recognises &mdash; pick a preset above or type your own (e.g. NACA 4-digit like naca2412, or a UIUC code like goe795).</p>
+    <div class="fields"><label>RPM <input id="pm-rpm" type="number" step="100" value="6000"></label><label>Climb velocity (m/s) <input id="pm-vclimb" type="number" step="0.5" value="0"></label></div>
+  </div>
+  <div class="actions"><button id="pm-run" class="primary">Calculate</button></div>
+  <div id="pm-error" class="error" aria-live="polite"></div>
+  <div class="cards" id="pm-result"></div>
+  <div class="live-grid">
+    <div class="card"><h3>Thrust loading dT/dr (r/R)</h3><div id="pm-plot-dt" class="plot"></div></div>
+    <div class="card"><h3>Torque loading dQ/dr (r/R)</h3><div id="pm-plot-dq" class="plot"></div></div>
+    <div class="card"><h3>Angle of attack, deg (r/R)</h3><div id="pm-plot-aoa" class="plot"></div></div>
+    <div class="card"><h3>Tip-loss factor F (r/R)</h3><div id="pm-plot-f" class="plot"></div></div>
+  </div>
+</section>
+</section>
+</main><script type="module" src="/app.js"></script></body></html>

@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KTP-DT Architecture Explorer</title>
+<script src="https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+  /* clean theme tokens (light / dark), Archify palette */
+  :root { --fg:#1b2b34; --bg:#f6f8fa; --muted:#56707c; --border:#d0dbe1; --accent:#087f9c;
+          --panel:#ffffff; --canvas:#ffffff; --dot:#e6edf1; --hl:#b65120; --bad:#b32f50;
+          --wire:#6d93a5; --wire-em:#087f69; --wire-dash:#6757a8; --frame:#a86609;
+          --frame-fill:none; --mask:#ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e6edf3; --bg:#0d1117; --muted:#9aa9b4; --border:#2b3640; --accent:#66d9ef;
+            --panel:#131a21; --canvas:#131a21; --dot:#1f2830; --hl:#ffad66; --bad:#ff8da1;
+            --wire:#78a3b7; --wire-em:#64dfc1; --wire-dash:#b4a8ff; --frame:#ffd166;
+            --frame-fill:none; --mask:#131a21; }
+  }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--fg);
+         background:var(--bg); margin:0; line-height:1.5; font-size:14px; }
+  header { padding:12px 20px 8px; border-bottom:1px solid var(--border); background:var(--panel); }
+  h1 { font-size:22px; font-weight:700; margin:0 0 2px; }
+  .meta { color:var(--muted); font-size:12px; }
+  .meta code { font-size:11px; }
+  code { font-family:ui-monospace,SFMono-Regular,"Cascadia Code",Consolas,monospace; background:var(--panel);
+         padding:0 4px; border-radius:4px; font-size:12px; }
+  #banner { display:none; background:var(--bad); color:#fff; padding:8px 20px; font-size:13px; white-space:pre-wrap; }
+  nav.tabs { display:flex; gap:4px; padding:8px 20px 0; border-bottom:1px solid var(--border); background:var(--panel); }
+  nav.tabs button { background:none; border:1px solid transparent; border-bottom:none; padding:6px 14px; cursor:pointer;
+         color:var(--muted); font:inherit; border-radius:6px 6px 0 0; }
+  nav.tabs button.on { color:var(--fg); border-color:var(--border); background:var(--bg); margin-bottom:-1px; font-weight:600; }
+  .view { display:none; } .view.on { display:block; }
+  #crumbs { padding:8px 20px; font-size:13px; display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+  #crumbs a { color:var(--accent); text-decoration:none; cursor:pointer; } #crumbs a:hover { text-decoration:underline; }
+  #crumbs .sep { color:var(--muted); }
+  #crumbs .up { margin-left:auto; }
+  .wrap { display:grid; grid-template-columns: minmax(0,1fr) 330px; gap:0; border-top:1px solid var(--border);
+          height:calc(100vh - 150px); min-height:480px; position:relative; }
+  #canvas { overflow:auto; background-color:var(--canvas); padding:24px; }
+  #canvas svg { display:block; margin:0 auto; }
+  #canvas svg text { font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; fill:var(--fg); text-anchor:middle; pointer-events:none; }
+  #canvas .node { cursor:pointer; }
+  #canvas .node rect { stroke-width:1.5px; }
+  #canvas .node.sub rect { stroke-width:2.6px; }
+  #canvas .node.port rect { stroke-width:1.5px; stroke-dasharray:none; }
+  #canvas .node:hover rect { filter:brightness(1.06); stroke:var(--accent) !important; }
+  #canvas .nm { font-size:12px; font-weight:600; }
+  #canvas .ns { font-size:10px; fill:var(--muted); }
+  #canvas .frame rect.fr { fill:var(--frame-fill); stroke:var(--frame); stroke-width:1px; stroke-dasharray:8 4; }
+  #canvas .frame rect.fm { fill:var(--mask); stroke:none; }
+  #canvas .frame text { text-anchor:start; font-size:11px; font-weight:600; fill:var(--frame); }
+  #canvas .wire { fill:none; stroke:var(--wire); stroke-width:1.5px; }
+  #canvas .wire.seq { stroke:var(--wire-dash); stroke-dasharray:4 4; }
+  #canvas .ah { fill:var(--wire); } #canvas .ahl { fill:var(--hl); }
+  #canvas .hit { fill:none; stroke:transparent; stroke-width:12px; }
+  #canvas .wg, #canvas .edgeLabel { cursor:pointer; }
+  #canvas .wg.hov .wire { stroke:var(--wire-em); stroke-width:2.4px; }
+  #canvas .edgeLabel rect { fill:var(--mask); stroke:none; }
+  #canvas .edgeLabel.hov rect { stroke:var(--wire-em); stroke-width:.8px; }
+  #canvas .lm { font-size:10px; fill:var(--fg); } #canvas .lt { font-size:9px; fill:var(--muted); }
+  #canvas .hl-edge .wire { stroke:var(--hl) !important; stroke-width:3.5px !important; }
+  #canvas .hl-node rect { stroke:var(--hl) !important; stroke-width:4px !important; }
+  #canvas .hl-label rect { stroke:var(--hl); stroke-width:2px; }
+  aside { border-left:1px solid var(--border); overflow:auto; padding:14px 16px; background:var(--panel); }
+  aside h2 { font-size:16px; margin:0 0 2px; }
+  aside h3 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:14px 0 4px; }
+  aside .sub { color:var(--muted); margin-bottom:6px; }
+  aside ul { margin:4px 0; padding-left:18px; }
+  aside li { margin:2px 0; }
+  .chip { display:inline-block; font-family:ui-monospace,Consolas,monospace; font-size:11px; background:var(--panel);
+          border:1px solid var(--border); border-radius:10px; padding:0 7px; margin:2px 3px 2px 0; }
+  .sig { border:1px solid var(--border); border-radius:6px; padding:6px 8px; margin:6px 0; background:var(--panel); font-size:13px; }
+  .sig b { display:block; }
+  .sig .kv { color:var(--muted); font-size:12px; }
+  .gotcha { border-left:3px solid var(--hl); padding:2px 8px; margin:4px 0; font-size:13px; }
+  .hint { color:var(--muted); font-size:12px; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--muted); margin-top:6px; }
+  .legend span i { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:4px; border:1px solid var(--border); }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { border:1px solid var(--border); padding:4px 8px; text-align:left; vertical-align:top; }
+  th { background:var(--panel); position:sticky; top:0; }
+  .pad { padding:16px 20px; max-width:1100px; }
+  .trace-step { border:1px solid var(--border); border-radius:8px; padding:8px 12px; margin:8px 0; cursor:pointer; }
+  .trace-step:hover { border-color:var(--accent); }
+  .trace-step .n { font-weight:700; color:var(--hl); margin-right:6px; }
+  h3.tr-h { font-size:15px; margin:22px 0 2px; }
+  a.jump { color:var(--accent); cursor:pointer; } a.jump:hover { text-decoration:underline; }
+  button.small { font:inherit; font-size:12px; padding:3px 10px; border:1px solid var(--border); border-radius:6px;
+         background:var(--panel); color:var(--fg); cursor:pointer; }
+  @media (max-width: 900px) { .wrap { grid-template-columns:1fr; height:auto; } #canvas { height:70vh; } aside { border-left:none; border-top:1px solid var(--border); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>KTP-DT Architecture Explorer</h1>
+  <div class="meta" id="meta"></div>
+  <div class="legend" id="legend"></div>
+</header>
+<div id="banner"></div>
+<nav class="tabs">
+  <button data-v="diagram" class="on">Block diagram</button>
+  <button data-v="trace">Follow a run</button>
+  <button data-v="ports">Port map</button>
+  <button data-v="repo">Repo map</button>
+</nav>
+
+<section class="view on" id="v-diagram">
+  <div id="crumbs"></div>
+  <div class="wrap">
+    <div id="canvas"></div>
+    <aside id="panel"></aside>
+  </div>
+</section>
+
+<section class="view" id="v-trace"><div class="pad" id="trace"></div></section>
+<section class="view" id="v-ports"><div class="pad" id="ports"></div></section>
+<section class="view" id="v-repo"><div class="pad" id="repo"></div></section>
+
+<script>
+/* =============================================================================
+ * HOW TO UPDATE THIS DOC (living document)
+ * -----------------------------------------------------------------------------
+ * Edit ONLY the MODEL object below. The renderer draws everything from it.
+ *  - nodes:  id -> { title, sub (plain-English subtitle shown in block),
+ *            summary, files [file names only, never paths], gotchas [],
+ *            children [ids], dom (colour domain; inherited by children) }
+ *            A node with children is a subsystem (click drills in).
+ *  - edges:  { id?, from, to, label, transport, port, rate, src, seq? }
+ *            Declare each signal ONCE between the most specific blocks.
+ *            The renderer lifts it to whatever level is shown; signals
+ *            crossing the opened block become In/Out ports.
+ *            `src` = file name + symbol the port/rate comes from (grep it).
+ *            `seq:true` = execution order arrow (dotted), not data.
+ *  - traces: "Follow a run" walk-throughs [{ id, title, intro, steps:[{ level, edge?, node?, text }] }].
+ *  - repo:   "Repo map" rows { path, node, what } — file/folder → owning block.
+ *  - meta:   bump `updated` + the commit SHA whenever you re-verify against code.
+ * On load an integrity check runs; a red banner lists broken ids.
+ * Rule: code wins over docs. Verify ports/rates by grepping `src`.
+ * ========================================================================== */
+const MODEL = {
+  meta: {
+    version: "1.0", updated: "2026-09-30",
+    repo: "cf2c185 + uncommitted working tree (GUI path fields, setup.bat prompts)"
+  },
+
+  domains: {
+    web:   { name: "Browser front-end (JS)",            light: ["rgba(8,145,178,0.08)","#087f9c"], dark: ["rgba(26,157,193,0.14)","#66d9ef"] },
+    host:  { name: "Host Python processes",             light: ["rgba(5,128,101,0.08)","#08755f"], dark: ["rgba(31,155,124,0.13)","#69dfbd"] },
+    wsl:   { name: "WSL / Linux runtime (ArduPilot)",   light: ["rgba(181,120,15,0.08)","#a86609"], dark: ["rgba(197,145,43,0.13)","#ffd166"] },
+    ext:   { name: "External programs & vendored libs", light: ["rgba(100,75,180,0.08)","#6757a8"], dark: ["rgba(120,105,196,0.14)","#b4a8ff"] },
+    data:  { name: "Config, data & result files",       light: ["rgba(79,112,128,0.08)","#506f7e"], dark: ["rgba(84,119,139,0.18)","#a7cad9"] },
+    model: { name: "Standalone analysis models",        light: ["rgba(47,95,196,0.08)","#2f5fc4"], dark: ["rgba(90,130,240,0.16)","#8fb0ff"] },
+    tool:  { name: "Setup, tests & docs",               light: ["rgba(190,48,80,0.07)","#b32f50"], dark: ["rgba(199,76,104,0.13)","#ff8da1"] },
+    ioport:{ name: "In/Out port (signal enters or leaves this block)", light: ["#f9fdff","#123344"], dark: ["#0a2031","#e3f6ff"] }
+  },
+
+  nodes: {
+    root: { title: "KTP-DT", sub: "whole system",
+      summary: "KTP-DT is a digital twin of a multirotor drone. A Python physics process (6-DOF rigid body, motors read from a database, wind gusts, ground contact) plays the real world for a real ArduPilot flight controller that runs on the PC inside WSL (Linux). The two swap messages over UDP port 9002 in strict lock-step: ArduPilot sends motor PWM, the twin answers with IMU/position/velocity/attitude. A browser GUI, served by a small FastAPI program, starts and stops both, shows live telemetry, and also hosts two design tools (flight-time estimator, propulsion model) that share the same motor/battery database. Output of KTP 10088368 (Digital Twin System).",
+      gotchas: ["Click any block with ▸ to open it. Click a wire (or its label) to see exactly what travels on it.",
+                "Two ways to run: through the GUI (Windows + WSL) or headless (`python Src/DT/main.py` + start ArduPilot by hand)."],
+      children: ["browser","gui_server","dt","fc","design","prop","db","cfg","results","ext_gcs","tools"] },
+
+    /* =========================== BROWSER =========================== */
+    browser: { title: "Browser GUI", sub: "single-page app you click", dom: "web",
+      summary: "Plain JavaScript page (no build step) served at http://127.0.0.1:8080. Three tabs: Simulator (Setup + Live Data), Flight Time, Propulsion Model. It talks to the GUI server with fetch() for one-off calls and one WebSocket for the live telemetry stream.",
+      files: ["index.html","app.js","styles.css"],
+      gotchas: ["app.js is an ES module loaded with <script type=module>; three.js is resolved through an import map to the vendored copy — no CDN, works offline."],
+      children: ["ui_shell","ui_status","ui_setup","ui_live","ui_flight","ui_prop","ui_vendor"] },
+    ui_shell: { title: "Tab shell + boot", sub: "showTab / showSubtab / boot()",
+      summary: "Switches between tabs and sub-tabs, and on load runs boot(): fetch /api/options (fills the parameter-file, motor and battery drop-downs), fetch the startup config into the text box, fetch /api/status (pre-fills ArduPilot dir and venv fields from the saved state), wire every button, then open the WebSocket.",
+      files: ["app.js"],
+      gotchas: ["showSubtab is scoped to its parent tab — a document-wide version once blanked the Simulator after visiting the Propeller sub-tab.",
+                "If boot() throws, the error text lands in the Setup status line."] },
+    ui_status: { title: "Status bar", sub: "Realtime · CPU · FPS · t · Connected",
+      summary: "Persistent strip under the header, refreshed by the 'status' messages the physics process sends about every 10 s of wall-clock time. Realtime ≥ 90 % green, ≥ 70 % amber, else red; CPU is green up to 50 %, amber up to 75 %; Connected shows whether ArduPilot has spoken to the twin.",
+      files: ["app.js"],
+      gotchas: ["Realtime % = simulated seconds ÷ wall seconds over the last window; below 100 % the sim is slower than real time."] },
+    ui_setup: { title: "Simulator ▸ Setup", sub: "launch card + config editor",
+      summary: "Everything needed to start a run: pick a parameter file, host IP, ArduPilot directory and venv (WSL paths), optional EEPROM wipe, then Launch / Stop. Next to it, the startup_config.json editor.",
+      files: ["index.html","app.js"],
+      children: ["su_launch","su_ip","su_cfg","su_wipe"] },
+    su_launch: { title: "Launch / Stop", sub: "POST /api/launch · /api/stop",
+      summary: "Sends {param_file, ip, ardupilot_dir, venv_activate, config} to the server. The result (status JSON, or 'Error: …' text from a 409) is printed under the buttons. ArduPilot dir and venv start pre-filled from what setup.bat saved; whatever you launch with becomes the new default.",
+      files: ["app.js"],
+      gotchas: ["Launch only works on Windows with WSL (the server shells out to wsl.exe)."] },
+    su_ip: { title: "Host IP + Detect", sub: "where WSL sends UDP",
+      summary: "The Host IP field is the address ArduPilot (inside WSL) sends to. 'Detect IP' asks the server to read WSL's default-route gateway, which is the Windows host as seen from WSL.",
+      files: ["app.js"],
+      gotchas: ["The field starts as 127.0.0.1 and is sent as-is; the server only auto-detects when the field is EMPTY. On Windows + WSL click Detect IP first, otherwise ArduPilot's packets go to WSL's own loopback and never reach the twin."] },
+    su_cfg: { title: "Startup config editor", sub: "startup_config.json text box",
+      summary: "Textarea showing the whole startup config as JSON. 'Save config' PUTs it back; Launch also writes it (the server saves the box contents before starting anything).",
+      files: ["app.js"],
+      gotchas: ["No validation beyond JSON.parse — a wrong key name is silently ignored by the twin (see Twin config)."] },
+    su_wipe: { title: "Wipe EEPROM checkbox", sub: "-w on/off",
+      summary: "Checkbox 'Wipe EEPROM on launch (-w)'. Ticking it sets sitl.preserve_eeprom = false inside the JSON in the box (unticked → true). The launcher turns preserve_eeprom = false into ArduPilot's -w flag.",
+      files: ["app.js"],
+      gotchas: ["Default is preserve (no -w): parameters changed in an earlier run stay in ArduPilot's eeprom.bin and can override the .parm file."] },
+
+    ui_live: { title: "Simulator ▸ Live Data", sub: "streaming plots + 3D",
+      summary: "Lazy-started the first time you open the tab: builds the ring buffers, four uPlot charts and the three.js scene, then draws whatever the WebSocket delivers.",
+      files: ["app.js"],
+      gotchas: ["Telemetry frames that arrive BEFORE the Live Data tab is first opened are dropped (only status messages are handled), so plots start empty when opened."],
+      children: ["lv_ws","lv_ring","lv_charts","lv_3d","lv_cards"] },
+    lv_ws: { title: "WebSocket client", sub: "connectWS()",
+      summary: "Opens ws://host/ws/telemetry, parses each JSON frame, routes type 'status' to the status bar and type 'telemetry' to the live view. Reconnects every 1.5 s if the socket closes.",
+      files: ["app.js"] },
+    lv_ring: { title: "Ring buffers", sub: "600 points per signal",
+      summary: "Typed-array ring buffers (O(1) push, no shift) for time, accel×3, gyro×3, altitude, wind×3. 600 points ≈ 12 s of history at 50 Hz. 'Clear' swaps in empty buffers.",
+      files: ["app.js"] },
+    lv_charts: { title: "Charts (uPlot)", sub: "accel · gyro · altitude · wind",
+      summary: "Four uPlot line charts redrawn at most once per animation frame (requestAnimationFrame), resized by a debounced ResizeObserver. Skipped while the tab is hidden.",
+      files: ["app.js"] },
+    lv_3d: { title: "3D trajectory (three.js)", sub: "E / N / Up trail",
+      summary: "Orbit-controllable scene with grid, axes, a 600-point trail and a marker at the current position. NED position is mapped to three.js as x = East, y = Up, z = North.",
+      files: ["app.js"],
+      gotchas: ["If the vendored three.js fails to import, the panel shows an error text and the rest of the page keeps working."] },
+    lv_cards: { title: "Readout cards", sub: "altitude · wind · accel · gyro",
+      summary: "Four <output> boxes with the latest numbers.",
+      files: ["index.html","app.js"],
+      gotchas: ["'Accel' shows the twin's body acceleration (≈ 0 in a steady hover, gravity is inside it), not the IMU-style specific force ArduPilot receives (≈ −g on Z in hover)."] },
+
+    ui_flight: { title: "Flight Time tab", sub: "form → /api/flight-time",
+      summary: "Aircraft (structural/payload mass, max empty weight), motor + battery + counts, flight parameters (bank angle, required and flight T/W, avionics power). Calculate posts the form and shows flight time, MTOW, empty weight, payload ratio, power, battery energy, depth of discharge and motor throttle as cards; errors (e.g. 'motor cannot meet required thrust ratio') are shown in red.",
+      files: ["index.html","app.js"] },
+    ui_prop: { title: "Propulsion Model tab", sub: "motor · propeller sub-tabs",
+      summary: "Two independent calculators with the same layout: inputs → Calculate → result cards → four uPlot charts.",
+      files: ["index.html","app.js"],
+      children: ["pp_motor","pp_prop"] },
+    pp_motor: { title: "Motor Model", sub: "DC motor operating point",
+      summary: "Inputs: Kv, Rm, I0, k_iron, battery V, ESC efficiency, throttle, winding temperature, load torque. Cards: RPM, current, torque, shaft/electrical power, efficiency. Charts: RPM, current, torque, efficiency versus throttle (19-point sweep).",
+      files: ["app.js"] },
+    pp_prop: { title: "Propeller Model", sub: "blade-element rotor solve",
+      summary: "Inputs: diameter, pitch (inches), blades, airfoil name (free text + presets), RPM, climb velocity. Cards: thrust, torque, aero power, CT, CQ, efficiency, geometry source. Charts: dT/dr, dQ/dr, angle of attack, tip-loss factor versus r/R.",
+      files: ["app.js"],
+      gotchas: ["Only diameter/pitch combinations with a matching APC .PE0 file work; otherwise the server answers 400 'No APC geometry matches …'."] },
+    ui_vendor: { title: "Vendored libraries", sub: "uPlot · three.js · OrbitControls", dom: "ext",
+      summary: "Third-party JavaScript copied into gui/static/vendor so the GUI needs no internet: uPlot (2D time-series), three.js (ES module) and its OrbitControls.",
+      files: ["uPlot.iife.min.js","three.module.js","OrbitControls.js"] },
+
+    /* =========================== GUI SERVER =========================== */
+    gui_server: { title: "GUI server", sub: "python -m gui (FastAPI + uvicorn)", dom: "host",
+      summary: "One Python process on the host PC. It serves the web page, answers the JSON API, relays telemetry to browsers over a WebSocket, and — through the launcher — starts and stops the physics process and the ArduPilot SITL. It never simulates anything itself.",
+      files: ["__main__.py","server.py","config_io.py","launcher.py","telemetry.py"],
+      children: ["srv_entry","srv_static","srv_api","srv_cfgio","launcher","telem_hub"] },
+    srv_entry: { title: "Entry point", sub: "python -m gui",
+      summary: "Parses --port (8080), --host (127.0.0.1), --no-browser; refuses to start if the port is already taken; opens the browser after 1 s; runs uvicorn with create_app(). On app startup it starts the telemetry thread; on shutdown it stops it and stops any running simulation.",
+      files: ["__main__.py","server.py"],
+      gotchas: ["This is the ONLY way the GUI starts (per its docstring).",
+                "Closing the server also runs launcher.stop() — it kills the twin and pkills ArduPilot in WSL."] },
+    srv_static: { title: "Static files", sub: "/ → gui/static, no-store",
+      summary: "Serves index.html, app.js, styles.css and vendor/ from gui/static. Every response carries Cache-Control: no-store.",
+      files: ["server.py"],
+      gotchas: ["The no-store middleware exists because a stale cached app.js paired with a fresh index.html silently broke the page."] },
+    srv_api: { title: "API routes", sub: "REST + WebSocket in server.py",
+      summary: "The eight endpoint groups the browser uses. Slow work (SQLite, subprocess, BEMT solve) runs in worker threads via asyncio.to_thread so the event loop stays responsive. Input problems come back as HTTP 400 with the error text; launch problems as 409.",
+      files: ["server.py"],
+      children: ["api_options","api_config","api_status","api_launch","api_flight","api_motor","api_rotor","api_ws"] },
+    api_options: { title: "GET /api/options", sub: "drop-down contents",
+      summary: "Returns {param_files, drone_models, motors, batteries}: *.parm/*.param names in the param folder, drone JSON stems, and motor/battery names from the database.",
+      files: ["server.py","config_io.py"],
+      gotchas: ["drone_models is returned but no control in the GUI uses it — the twin reads drone_model from the startup config."] },
+    api_config: { title: "/api/config/{name}", sub: "read / write JSON config",
+      summary: "GET returns and PUT atomically writes 'startup' (startup_config.json) or 'drone:<name>' (a drone JSON). PUT accepts {data: …} or the raw object; 404 unknown/missing, 400 bad JSON.",
+      files: ["server.py","config_io.py"],
+      gotchas: ["Only 'startup' is used by the GUI; drone:<name> is reachable by API only."] },
+    api_status: { title: "/api/status · /api/detect-ip", sub: "saved paths + WSL host IP",
+      summary: "status → {backend_running, sitl_running, host_ip, param_file, ardupilot_dir, venv_activate}. detect-ip[?force=true] → WSL's default-route IP, cached in gui_state.json.",
+      files: ["server.py","launcher.py"] },
+    api_launch: { title: "POST /api/launch · /api/stop", sub: "start / stop a run",
+      summary: "launch: 400 if param_file is missing; saves the posted config to startup_config.json, then runs LaunchManager.launch (any failure → 409 with the message). stop: kills the physics process and the WSL processes.",
+      files: ["server.py","launcher.py"] },
+    api_flight: { title: "POST /api/flight-time", sub: "flight-time estimate",
+      summary: "Adds Src/Design-config-tool to sys.path on first call, then runs calculate_flight_time(body, verbose=False) in a thread. KeyError/ValueError/IndexError → 400.",
+      files: ["server.py"],
+      gotchas: ["max_empty_weight has no default in the calculator — leaving it out gives a 400 'max_empty_weight'."] },
+    api_motor: { title: "POST /api/propulsion/motor", sub: "motor point + sweep",
+      summary: "Solves the requested operating point, then re-solves 19 throttle values from 0.1 to 1.0 (all with the same voltage and load) and returns everything, numpy arrays converted to lists.",
+      files: ["server.py"] },
+    api_rotor: { title: "POST /api/propulsion/propeller", sub: "rotor BEMT solve",
+      summary: "Converts inches → metres, looks up blade geometry, builds airfoil polars, runs the rotor solver with radial output, adds r/R, geometry source and the APC file name.",
+      files: ["server.py"],
+      gotchas: ["An airfoil name NeuralFoil cannot resolve is reported as 400 \"airfoil '…' could not be resolved\"."] },
+    api_ws: { title: "WS /ws/telemetry", sub: "live stream to browsers",
+      summary: "Accepts a WebSocket, registers it with the telemetry hub, then just waits (it ignores anything the browser sends). Removed from the hub on disconnect.",
+      files: ["server.py"] },
+
+    srv_cfgio: { title: "Config I/O", sub: "config_io.py",
+      summary: "Maps config names to files, reads JSON, writes atomically (write .tmp, then replace), and builds the /api/options lists. Puts Src/Design-config-tool on sys.path so it can import the database name helpers.",
+      files: ["config_io.py"] },
+
+    launcher: { title: "LaunchManager", sub: "starts / stops the two processes",
+      summary: "Holds the handle of the physics process and a flag for the WSL side. launch() runs the steps below in order — the physics process is started BEFORE ArduPilot so the UDP socket is already listening when ArduPilot's first frame is sent.",
+      files: ["launcher.py"],
+      gotchas: ["Refuses a second launch while its own physics process is still alive ('backend already running')."],
+      children: ["lm_ip","lm_paths","lm_checks","lm_backend","lm_cmd","lm_spawn","lm_stop","lm_state"] },
+    lm_ip: { title: "1 · Host IP", sub: "get_host_ip()",
+      summary: "Uses the IP from the request; if empty, the cached one in gui_state.json; if none, runs `wsl.exe -e bash -lc \"ip route show default | awk '{print $3}'\"`. The result is saved with the ArduPilot dir and venv before anything else happens.",
+      files: ["launcher.py"] },
+    lm_paths: { title: "Path converter", sub: "_wsl_path · _param_dir_wsl",
+      summary: "Turns Explorer-style \\\\wsl.localhost\\Distro\\home\\… or \\\\wsl$\\… into /home/…; ~/ into \"$HOME/…\"; anything else is shell-quoted. Also turns the repo's param folder into /mnt/<drive>/…/Src/DT/config/drone_sim_param_files.",
+      files: ["launcher.py"],
+      gotchas: ["_param_dir_wsl assumes the repo sits on a Windows drive letter (uses REPO_ROOT.drive and drops the first three characters)."] },
+    lm_checks: { title: "2 · Pre-flight checks", sub: "port free · ArduPilot found",
+      summary: "(a) port 9002 must be free; (b) inside WSL: `test -d <dir> && test -f <dir>/Tools/autotest/sim_vehicle.py`, else 'ArduPilot not found at <path> — check the path in Setup'. Failing here means nothing has been started yet.",
+      files: ["launcher.py"],
+      gotchas: ["_port_free binds a TCP socket (socket.socket() default), but 9002 is UDP — a leftover twin still holding UDP 9002 is NOT detected here, despite the message 'UDP port 9002 already in use'."] },
+    lm_backend: { title: "3 · Start physics process", sub: "python main.py (Src/DT)",
+      summary: "subprocess.Popen([sys.executable, 'main.py'], cwd=Src/DT) with DT_TELEMETRY_ENABLED=1 in the environment, which switches on the ZMQ telemetry publisher.",
+      files: ["launcher.py"] },
+    lm_cmd: { title: "4 · Build WSL command", sub: "_build_sitl_cmd()",
+      summary: "cd <ardupilot> && source <venv> && mkdir -p ~/.dt_params && tr -d '\\r' < <param file> > ~/.dt_params/<file> && Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --no-rebuild --model JSON:<ip> --out=udp:<ip>:14551 --add-param-file=~/.dt_params/<file> [-w].",
+      files: ["launcher.py"],
+      gotchas: ["The .parm is re-copied on every launch, so editing it in the repo always takes effect on the next Launch.",
+                "-w (wipe EEPROM) is added only when sitl.preserve_eeprom is false."] },
+    lm_spawn: { title: "5 · Open WSL terminal", sub: "wt.exe or new console",
+      summary: "Runs the command as `wsl.exe -e bash -lc <cmd>` inside a new Windows Terminal tab (wt.exe -w 0 nt …) if wt.exe exists, else in a new console window. That terminal IS the ArduPilot/MAVProxy session — it shows the boot log.",
+      files: ["launcher.py"] },
+    lm_stop: { title: "Stop", sub: "kill both sides",
+      summary: "Windows: `taskkill /F /T /PID` on the physics process (elsewhere terminate()). WSL: `pkill -INT -f sim_vehicle.py; sleep 1; pkill -9 -f 'sim_vehicle.py|arducopter|mavproxy'`. Clears the running flags.",
+      files: ["launcher.py"] },
+    lm_state: { title: "State + status", sub: "gui_state.json · status()",
+      summary: "load_state / save_state read and write Results/gui_state.json ({host_ip, ardupilot_dir, venv_activate}). status() builds the report the browser polls at load.",
+      files: ["launcher.py"],
+      gotchas: ["sitl_running is just a flag set at spawn time — it is never checked against real processes, so closing the WSL terminal by hand leaves it true until you press Stop.",
+                "Defaults when nothing is saved: ~/ardupilot and ~/venv-ardupilot/bin/activate."] },
+
+    telem_hub: { title: "TelemetryHub", sub: "ZMQ SUB → WebSocket fan-out",
+      summary: "Bridges the physics process's ZeroMQ stream to every connected browser. Uses a plain blocking ZMQ socket in a background thread (not zmq.asyncio) so it works on the Windows Proactor event loop that uvicorn installs.",
+      files: ["telemetry.py"],
+      children: ["th_sub","th_drain","th_fan"] },
+    th_sub: { title: "SUB thread", sub: "connect :9010, poll 30 ms",
+      summary: "Connects (not binds) to tcp://127.0.0.1:9010, subscribes to everything, receive high-water-mark 10 (≈ 200 ms at 50 Hz), and polls with a 30 ms timeout so it can notice a stop request.",
+      files: ["telemetry.py"] },
+    th_drain: { title: "Keep newest", sub: "drop stale frames",
+      summary: "When the socket is readable it reads every queued message without blocking and keeps only the LAST one, so a slow browser never builds up a backlog.",
+      files: ["telemetry.py"],
+      gotchas: ["Because only the last queued message survives, a rare 'status' message that arrives together with a later telemetry frame can be dropped."] },
+    th_fan: { title: "Fan-out", sub: "send_json to each client",
+      summary: "Marshals the payload onto the server's event loop (run_coroutine_threadsafe) and sends it to all clients at once; a client whose send fails is silently removed. Does nothing when no browser is connected.",
+      files: ["telemetry.py"] },
+
+    /* =========================== DIGITAL TWIN =========================== */
+    dt: { title: "Digital-twin backend", sub: "Src/DT/main.py — the physics process", dom: "host",
+      summary: "The simulator proper. A separate Python process that opens UDP 9002, waits for ArduPilot's motor PWM, advances the 6-DOF physics by one step, and replies with IMU, position, velocity and attitude. Because ArduPilot waits for each reply, simulation speed simply follows ArduPilot's frame rate. Side jobs: publish telemetry for the GUI, write a CSV, optionally draw a matplotlib 3D window.",
+      files: ["main.py"],
+      gotchas: ["Nothing here simulates sensor noise: only the IMU comes from this process, and ArduPilot builds GPS/baro/compass itself from the position and attitude it is sent."],
+      children: ["dt_boot","dt_loop","dt_link","dt_sim","dt_tpub","dt_log","dt_viz"] },
+    dt_boot: { title: "Startup", sub: "load config, build objects",
+      summary: "Reads startup_config.json and the drone JSON named by drone_model (dashes → underscores: 'generic-quad' → generic_quad.json), builds Simulation, SITLConnector (binds UDP 9002), StateLogger (if logging.enabled), the viz process (if viz.enabled) and the telemetry publisher, and turns SIGINT into a clean exit so finally-blocks run.",
+      files: ["main.py"],
+      gotchas: ["Config paths come from main.py's own location (REPO_ROOT = three levels up), so the working directory does not matter; logging.path is relative to the repo root."] },
+
+    dt_loop: { title: "Main loop", sub: "one pass = one ArduPilot frame",
+      summary: "The `while True` in main(). Blocks on ArduPilot, steps the physics, replies, then does the side outputs. Runs until the process is killed.",
+      files: ["main.py"],
+      gotchas: ["Sim time advances by dt each frame; there is no wall-clock pacing — ArduPilot sets the pace."],
+      children: ["lp_recv","lp_reset","lp_dt","lp_tick","lp_send","lp_telem","lp_stats","lp_viz","lp_log"] },
+    lp_recv: { title: "1 · Receive PWM", sub: "link.recv_pwm() blocks",
+      summary: "Waits for the next valid frame from ArduPilot. Returns pwm array, frame_rate, frame_count, a reset flag and the count of missed frames.",
+      files: ["main.py"] },
+    lp_reset: { title: "2 · Reset check", sub: "controller restarted?",
+      summary: "If ArduPilot restarted (frame count went backwards): sim.reset() and sim_time = 0.",
+      files: ["main.py","simulation.py"] },
+    lp_dt: { title: "3 · Choose dt", sub: "min(1/frame_rate, 1/sim_rate)",
+      summary: "Step length = the smaller of ArduPilot's reported frame period and the configured sim period (1/400 s).",
+      files: ["main.py"],
+      gotchas: ["sim_rate is a CAP on the step size, not a timer."] },
+    lp_tick: { title: "4 · sim.tick(pwm, dt)", sub: "advance physics one step",
+      summary: "Calls the physics and times it (perf_counter) — that number, tick_us, feeds the status message.",
+      files: ["main.py","simulation.py"] },
+    lp_send: { title: "5 · Send state", sub: "reply to ArduPilot",
+      summary: "sim_time += dt, then link.send_state(state, sim_time). ArduPilot is blocked until this arrives.",
+      files: ["main.py"] },
+    lp_telem: { title: "6 · Telemetry frame", sub: "50 Hz, sim time",
+      summary: "Builds the snapshot dict and offers it to the publisher, which sends at most one every 1/50 s of SIMULATED time.",
+      files: ["main.py"],
+      gotchas: ["gps_alt, baro_alt and state_alt are all the same true altitude; mag_xyz is always null — there are no sensor models in this repo's twin."] },
+    lp_stats: { title: "7 · Stats + status", sub: "every 10 s wall-clock",
+      summary: "link.report_progress(...) prints a [sitl] line and, once per 10 s of wall time, returns a metrics dict; if telemetry is on it is published as a 'status' message.",
+      files: ["main.py"] },
+    lp_viz: { title: "8 · Viz frame", sub: "viz.fps, optional",
+      summary: "If the 3D window is enabled and 1/fps of simulated time has passed, pushes {t, pos_ned, quat_wxyz} into a 1-slot queue with put_nowait (dropped if the window is behind).",
+      files: ["main.py"] },
+    lp_log: { title: "9 · Log row", sub: "logger.write()",
+      summary: "Appends one CSV row for this frame if logging is on.",
+      files: ["main.py"] },
+
+    dt_link: { title: "ArduPilot link", sub: "SITLConnector · UDP 9002",
+      summary: "Speaks ArduPilot's JSON physics-backend protocol: binary PWM frames in, newline-framed JSON out, same socket.",
+      files: ["ardupilot_sitl_connector.py"],
+      gotchas: ["startup_config sitl.print_every and sitl.magic are read/stored but not used: the status interval is fixed at 10 s and the frame layout is auto-detected from the magic in each packet."],
+      children: ["lk_sock","lk_parse","lk_seq","lk_encode","lk_stats"] },
+    lk_sock: { title: "UDP socket", sub: "0.0.0.0:9002",
+      summary: "One datagram socket: SO_REUSEADDR, 256 KB send/receive buffers, 1 s timeout (so Ctrl+C can interrupt on Windows), reused for both directions.",
+      files: ["ardupilot_sitl_connector.py"],
+      gotchas: ["Replies go to the address of the LAST frame received, so the twin cannot speak first — ArduPilot always initiates."] },
+    lk_parse: { title: "Frame parser", sub: "magic · length · unpack",
+      summary: "Drops packets shorter than 8 bytes. Magic 18458 → 16 servo channels, exactly 40 bytes; magic 29569 → 32 channels (SERVO_32_ENABLE=1), 72 bytes. Any other magic prints '[sitl] incorrect magic value'; wrong length is skipped. Unpacks frame_rate (uint16), frame_count (uint32) and pwm[] (uint16).",
+      files: ["ardupilot_sitl_connector.py"] },
+    lk_seq: { title: "Frame sequencing", sub: "reset · duplicate · missed",
+      summary: "frame_count lower than before → controller restarted (reset = True, 'Controller reset'). Same as before → duplicate, silently skipped. Jump of more than 1 while connected → 'Missed N input frames'. First good frame prints 'Connected to <addr>' and remembers the address.",
+      files: ["ardupilot_sitl_connector.py"] },
+    lk_encode: { title: "Reply encoder", sub: "send_state()",
+      summary: "Builds {timestamp, imu:{gyro, accel_body}, position (NED), attitude (roll, pitch, yaw rad), velocity (NED)}, with accel_body = accel_bb − DCM·g_ned. Serialised with orjson if installed (else json), wrapped in newlines, sent to the last sender. Does nothing before the first frame.",
+      files: ["ardupilot_sitl_connector.py"],
+      gotchas: ["accel_bb = F/m + v_body×ω, which already contains gravity and a −ω×v term. A textbook accelerometer (specific force) is F_non-gravity/m with NO ω×v term, so the IMU reading here differs by −ω×v when the drone moves and rotates at once — worth confirming this is intended.",
+                "The optional second IMU, magnetometer and barometer fields mentioned in the DT README are not sent by this code."] },
+    lk_stats: { title: "Progress stats", sub: "report_progress()",
+      summary: "Counts frames and physics time; every 10 s of wall time prints fps, realtime (sim ÷ wall), avg tick µs vs the 1/sim_rate budget and CPU % (psutil, optional) and returns them as a dict {fps, realtime_pct, t, tick_us, budget_pct, cpu_pct, connected}.",
+      files: ["ardupilot_sitl_connector.py"] },
+
+    dt_sim: { title: "Drone plant", sub: "Simulation.tick: PWM in → states out",
+      summary: "The physical drone, as one Simulink-style plant. INPUTS every tick: motor PWM[16] (µs) and the step dt (plus a reset from the main loop). STATE: the 13-value StateVector (position NED, body velocity, quaternion, body rates) fed back into ground contact, wind, drag and the integrator. OUTPUTS: the updated state — the 13 integrated values, derived dcm_be / Euler / NED velocity / lat-lon-alt, and post-step accelerations — read by the reply encoder, telemetry, viz and CSV. Inside, the order is: 1 PWM→throttle, 2 motor lag, 3 motor forces, 4 ground contact, 5 Dryden gust, 6 drag + gravity, 7 sum, 8 RK4 6-DOF integrator. Open the StateVector to see exactly which signals leave the plant.",
+      files: ["simulation.py","state.py"],
+      gotchas: ["Order inside tick is load-bearing: ground contact is evaluated before the gust because it decides whether wind acts (gusts only while airborne).",
+                "sim.seed=1 (default) spawns five child seeds (gps, imu, baro, mag, dryden) but only the Dryden one is used; with a master seed set, dryden.seeds in the config are ignored.",
+                "ground_contact.py and environment_aero.py keep their results in module-level scratch arrays, so only one Simulation can live in a process."],
+      children: ["sim_veh","s_pwm","s_lag","s_motor","s_ground","s_dryden","s_aero","s_sum","s_rk4","dt_state"] },
+    sim_veh: { title: "Vehicle parameters", sub: "VehicleParams (built once)",
+      summary: "Mass; inertia tensor (CAD kg·mm² ÷ 1e6 → kg·m², inverse precomputed); CG (mm → m); rotors [pwm_ch, arm position minus CG, spin direction, MotorLookup]; drag coefficients and areas; ground-contact constants; PWM min/max (1000/2000).",
+      files: ["simulation.py"],
+      gotchas: ["Each rotor's motor_name must exist in the database with type 'control', else ValueError \"Motor '…' not found\".",
+                "Read from the drone JSON: airframe, rotors.control, pwm, ground_contact. NOT read: imu_count, battery, rotor_aero, drag_reference_area."] },
+    s_pwm: { title: "1 · PWM → throttle", sub: "per rotor, 0…1",
+      summary: "throttle = clip((pwm[pwm_ch−1] − pwm_min)/(pwm_max − pwm_min), 0, 1) for each rotor's own channel number.",
+      files: ["motor_force_moments.py"],
+      gotchas: ["Raises 'PWM array too short' if a rotor's channel exceeds the array."] },
+    s_lag: { title: "2 · Motor lag", sub: "first-order, τ = 0.07 s",
+      summary: "throttle_state += (1 − e^(−dt/τ))·(command − throttle_state). Disabled by default (actuator.enabled = false → pass-through).",
+      files: ["motor_force_moments.py"],
+      gotchas: ["MotorDynamics.set_param exists for live changes but nothing in this repo calls it — change actuator settings in the config and restart.",
+                "Covered by tests/test_motor_dynamics.py (63 % at τ, 95 % at 3τ, reset)."] },
+    s_motor: { title: "3 · Motor forces", sub: "curve lookup → F and M",
+      summary: "For every rotor: thrust and torque are looked up from the motor database curve at its throttle, then turned into a body-frame force and moment.",
+      files: ["motor_force_moments.py"],
+      gotchas: ["Per-rotor power, current and rpm are also computed each tick but thrown away — battery/SOC is not modelled at runtime."],
+      children: ["mo_interp","mo_force","mo_moment"] },
+    mo_interp: { title: "Curve lookup", sub: "MotorLookup, 101-point grid",
+      summary: "Thrust [gram-force], torque [N·m], power, current and rpm pre-sampled onto throttle 0.00…1.00 in 0.01 steps; lookup is index = throttle×100 with linear interpolation (same result as np.interp, faster).",
+      files: ["motor_battery_db.py","motor_force_moments.py"] },
+    mo_force: { title: "Thrust force", sub: "F = −thrust on body Z",
+      summary: "thrust [N] = thrust_g × g / 1000; force[2] −= thrust (body Z is down, thrust pushes up).",
+      files: ["motor_force_moments.py"] },
+    mo_moment: { title: "Moment", sub: "arm × F + reaction torque",
+      summary: "moment += arm_pos × [0, 0, −thrust] (CG-relative arm) and moment_z += torque × spin_dir (±1) for the propeller's reaction torque.",
+      files: ["motor_force_moments.py"] },
+    s_ground: { title: "4 · Ground contact", sub: "spring-damper + friction",
+      summary: "feet_z = z_down + cg_ground_offset; in contact when feet_z ≥ 0. Vertical F = min(0, −k·feet_z − c·vz). Lateral = −k_lat·v_horizontal, clipped to μ·|F_vertical|. Rotational damping −k_rot·ω. Returns the force/moment (rotated to body) and an on_ground flag.",
+      files: ["ground_contact.py"],
+      gotchas: ["Soft spring (500 N/m): a 1.45 kg drone at rest sits about m·g/k ≈ 2.9 cm into the ground.",
+                "The default initial pos_ned = [0,0,0] puts the feet 13 cm below the ground plane; the spring pushes the drone up on the first frames."] },
+    s_dryden: { title: "5 · Dryden turbulence", sub: "MIL-F-8785C gusts",
+      summary: "Discrete Dryden model (linear gusts u, v, w). Used only when environment.dryden.enabled and the drone is airborne; otherwise the gust vector is zero.",
+      files: ["dryden_turbulence.py"],
+      gotchas: ["With dryden.enabled = false there is NO wind at all — the mean wind is part of the same block.",
+                "wind_heading_deg is documented as the direction the wind comes FROM, but the mean-wind vector is built as speed·[cos θ, sin θ] (pointing TOWARD θ) — check the convention before comparing with real logs."],
+      children: ["dy_scale","dy_filter","dy_out"] },
+    dy_scale: { title: "Scale lengths + intensity", sub: "depends on height, airspeed",
+      summary: "h = max(−z_down, 0.5 m) in feet; φ = 0.177 + 0.000823·h; Lw = h; Lu = Lv = h/φ^1.2; σw = 0.1·W20; σu = σv = σw/φ^0.4. Airspeed V = max(|v_body|, 0.5 m/s).",
+      files: ["dryden_turbulence.py"] },
+    dy_filter: { title: "Shaping filter", sub: "x[n] = (1−V·dt/L)x + √(2V·dt/L)·σ·η",
+      summary: "Three independent first-order filters (u, v, w) driven by seeded Gaussian noise. Steps only when the accumulated time reaches dt_filt (0.1 s in the shipped config); in between the last output is held.",
+      files: ["dryden_turbulence.py"],
+      gotchas: ["Accumulates the fixed sim period 1/sim_rate per call, not the actual frame dt."] },
+    dy_out: { title: "To NED + mean wind", sub: "v_gust_ned",
+      summary: "Body-frame gust → NED with dcm_beᵀ; rotated by wind_heading_deg (if not 0); added to the mean wind [speed·cos θ, speed·sin θ, vertical]. The result is also stored as sim.v_gust_ned for telemetry.",
+      files: ["dryden_turbulence.py","simulation.py"] },
+    s_aero: { title: "6 · Drag + gravity", sub: "quadratic drag, weight",
+      summary: "Relative wind in body axes v_rel = dcm_be·(v_ned − gust). F_drag = −½ρ·S·Cd·v_rel·|v_rel| per axis; M_drag same with Cd_moment and ω; gravity F = m·(dcm_be·[0,0,g]). Gravity enters the model only here.",
+      files: ["environment_aero.py","constants.py"],
+      gotchas: ["g = 9.80665 in code (constants.py); drone-plant-readme.md writes 9.81.",
+                "generic_quad sets drag_cd_moment = [0,0,0], so rotational drag is off."] },
+    s_sum: { title: "7 · Σ forces & moments", sub: "add everything up",
+      summary: "F_total = F_motors + F_drag + F_ground + F_gravity; M_total = M_motors + M_drag + M_ground (all body frame).",
+      files: ["simulation.py"] },
+    s_rk4: { title: "8 · 6-DOF integrator", sub: "quaternion RK4, 13 states",
+      summary: "The rigid-body core. Takes the total force and moment plus the current 13-value state, advances [position NED (3), body velocity (3), quaternion w-x-y-z (4), body rates (3)] by dt with classical Runge-Kutta, then writes the new state and all derived/post-step outputs into the StateVector.",
+      files: ["sixdof_quaternion.py","state.py"],
+      gotchas: ["Forces and moments are held constant over the four RK stages — only the rigid-body kinematics are re-evaluated."],
+      children: ["rk_rhs","rk_stages","rk_commit","rk_post"] },
+    rk_rhs: { title: "State derivative", sub: "_rhs(y, F, M)",
+      summary: "ṗ = R·v; v̇ = F/m − ω×v; q̇ = ½Ω(ω)q (quaternion normalised on entry); ω̇ = I⁻¹(M − ω×Iω).",
+      files: ["sixdof_quaternion.py"] },
+    rk_stages: { title: "RK4 stages", sub: "k1…k4",
+      summary: "k1 = f(y); k2 = f(y + ½h·k1); k3 = f(y + ½h·k2); k4 = f(y + h·k3); y_new = y + h/6·(k1 + 2k2 + 2k3 + k4).",
+      files: ["sixdof_quaternion.py"] },
+    rk_commit: { title: "Commit + derived", sub: "update_from_y()",
+      summary: "Copies y_new into the state, renormalises the quaternion, recomputes dcm_be, v_ned (earth-frame velocity) and Euler angles, and converts NED position to lat/lon/alt with a flat-earth formula around the initial position.",
+      files: ["state.py"] },
+    rk_post: { title: "Post-step outputs", sub: "accel_bb · accel_bi · ω̇",
+      summary: "accel_bb = F/m + v_body×ω; accel_bi = dcm_beᵀ·(F/m); domega_body = ω̇ at the new state.",
+      files: ["sixdof_quaternion.py"] },
+
+    dt_state: { title: "StateVector (plant outputs)", sub: "states held between ticks",
+      summary: "The plant's memory and its output bus. One 13-float array plus derived and post-step values, all updated in place — no new objects per tick. Frames: NED earth, FRD body, quaternion scalar-first. Open it to see each signal group.",
+      files: ["state.py","constants.py"],
+      children: ["stv_y","stv_derived","stv_post"] },
+    stv_y: { title: "Integrated states y[13]", sub: "x_ned · v_body · quat · ω_body",
+      summary: "The flat float64 array the integrator advances: y[0:3] position NED [m], y[3:6] velocity in body axes [m/s], y[6:10] quaternion w-x-y-z (unit), y[10:13] body rates p, q, r [rad/s]. The named fields x_ned, v_body, quat, omega_body are zero-copy views into it. Initial values come from startup_config.initial.",
+      files: ["state.py"] },
+    stv_derived: { title: "Derived outputs", sub: "dcm_be · euler · v_ned · lla",
+      summary: "Recomputed from y after every step: dcm_be (earth→body rotation matrix), euler [roll, pitch, yaw] rad (ZYX), v_ned = dcm_beᵀ·v_body [m/s], and lla [lat°, lon°, alt m] via a flat-earth conversion around the initial position (altitude = initial altitude − z_down).",
+      files: ["state.py"] },
+    stv_post: { title: "Post-step accelerations", sub: "accel_bb · accel_bi · ω̇",
+      summary: "Written by the integrator after each step: accel_bb (body-axis acceleration incl. gravity), accel_bi (F/m rotated to earth axes) and domega_body (angular acceleration). accel_bb is what the reply encoder turns into the IMU accel and what the Live Data 'Accel' plot shows.",
+      files: ["sixdof_quaternion.py"] },
+    dt_tpub: { title: "Telemetry publisher", sub: "ZMQ PUB :9010, opt-in",
+      summary: "TelemetryPublisher binds tcp://*:9010, send high-water-mark 1, non-blocking sends (a slow or missing subscriber can never stall the physics). Snapshots are decimated to 50 Hz of sim time; status messages go out immediately. Exists only if telemetry.enabled is true or DT_TELEMETRY_ENABLED=1.",
+      files: ["telemetry_pub.py"],
+      gotchas: ["Its docstring says the sim runs at 1000 Hz; the shipped config is 400 Hz.",
+                "Bind failure or missing pyzmq prints a message and the run continues without telemetry."] },
+    dt_log: { title: "CSV logger", sub: "StateLogger → Results/run.csv",
+      summary: "Columns: t, x_n, x_e, x_d, u, v, w, roll, pitch, yaw, p, q, r, realtime_pct. One row per physics frame.",
+      files: ["logger.py"],
+      gotchas: ["File is opened in 'w' mode — every start overwrites the previous run.csv.",
+                "Flushes after every row (~400 flushes per second of sim time).",
+                "The rotor_channels and pwm arguments are accepted but unused."] },
+    dt_viz: { title: "3D viewer (matplotlib)", sub: "separate process, off by default",
+      summary: "run_viz() in its own process: fixed world axes (E, N, Up), ground grid, a small quadcopter icon with body-axis arrows, redraws every 33 ms from the newest queue message. Auto-grows the axes if the drone leaves them.",
+      files: ["viz3d.py"] },
+
+    /* =========================== ARDUPILOT =========================== */
+    fc: { title: "ArduPilot SITL", sub: "flight controller in WSL (external)", dom: "wsl",
+      summary: "Not part of this repo: an ArduPilot clone (Copter-4.6) that you build once following the SITL install guide. The GUI starts it with sim_vehicle.py inside WSL. It is the same flight code that runs on real hardware; only its physics backend is swapped for the JSON link to the digital twin.",
+      files: ["sim_vehicle.py","arducopter"],
+      children: ["ap_sv","ap_json","ap_est","ap_ctrl","ap_par","ap_mav","ap_lua"] },
+    ap_sv: { title: "sim_vehicle.py", sub: "starts arducopter + MAVProxy",
+      summary: "ArduPilot's SITL launcher. Started with `-v ArduCopter -f quad --no-rebuild --model JSON:<host ip> --out=udp:<host ip>:14551 --add-param-file=… [-w]`.",
+      files: ["sim_vehicle.py"],
+      gotchas: ["--no-rebuild assumes the binary already exists: do the first build by hand (SITL guide, step 5).",
+                "Start order matters: the twin must already be listening, or MAVProxy exits / ArduPilot waits."] },
+    ap_json: { title: "JSON physics backend", sub: "the link to the twin",
+      summary: "Every control loop: send a binary frame (magic, frame rate, frame count, PWM ×16) to <host ip>:9002 and block until a JSON reply comes back. That block is what makes the pair run in lock-step.",
+      gotchas: ["No reply → ArduPilot just waits (no simulated time passes)."] },
+    ap_est: { title: "Sensors + state estimator", sub: "IMU in, EKF3 or ground truth",
+      summary: "Takes the IMU (gyro, accel) from the twin and builds GPS, barometer and compass readings itself from the true position and attitude the twin sends (ArduPilot's own SITL sensor models), then estimates attitude, position and velocity.",
+      gotchas: ["The two shipped parameter files differ in ONE line: AHRS_EKF_TYPE = 3 (EKF3, dt-ekf-paper.parm) versus 10 (SITL ground truth, dt-ground-truth-paper.parm)."] },
+    ap_ctrl: { title: "Flight control", sub: "modes → motor PWM",
+      summary: "Flight modes, position/attitude/rate controllers, arming and failsafes, and the motor mixer that produces one PWM per motor for the next frame." },
+    ap_par: { title: "Parameters + EEPROM", sub: ".parm defaults, eeprom.bin",
+      summary: "The selected .parm (≈ 1400 parameters) is applied with --add-param-file on top of ArduPilot's defaults. Values live in a simulated EEPROM that survives restarts unless -w is passed.",
+      gotchas: ["Leftover values from earlier runs can shadow the .parm unless Wipe EEPROM is ticked."] },
+    ap_mav: { title: "MAVProxy + MAVLink out", sub: "GCS telemetry",
+      summary: "MAVProxy sits between ArduPilot and ground-control programs. --out=udp:<host ip>:14551 forwards the MAVLink stream to the Windows side so any GCS can watch or command the simulated drone." },
+    ap_lua: { title: "Lua scripting", sub: "fault injection (optional)",
+      summary: "With SCR_ENABLE=1, .lua files in <ardupilot>/scripts run inside ArduPilot. The shipped scripts set ArduPilot's own SIM_ACC1_* and SIM_VIB_* parameters to inject accelerometer bias, noise or vibration once a chosen mission waypoint is reached.",
+      gotchas: ["These faults act inside ArduPilot's SITL sensor layer, not in the digital twin."] },
+
+    ext_gcs: { title: "Ground-control software", sub: "optional MAVLink listener", dom: "ext",
+      summary: "Any GCS (Mission Planner, QGroundControl, MAVProxy console…) listening on UDP 14551 on the host sees the simulated drone. This repo does not ship or require one; the browser GUI does not decode MAVLink.",
+      gotchas: ["Useful for uploading missions and Lua scripts; otherwise copy scripts into <ardupilot>/scripts by hand."] },
+
+    /* =========================== DESIGN TOOL =========================== */
+    design: { title: "Design-config tool", sub: "flight-time estimator", dom: "model",
+      summary: "Pure calculation: given a motor, a battery and an airframe mass budget, how long can it hover or fly at a chosen thrust-to-weight? Runs in the GUI server (Flight Time tab) or as a command-line script.",
+      files: ["flight_time_calc.py"],
+      children: ["dc_cli","dc_calc"] },
+    dc_cli: { title: "CLI", sub: "flight_time_calc.py --help",
+      summary: "Loads drone_config.json as the base, overwrites any field given as a flag, runs the calculation, asserts the result is finite and > 0 and prints every field.",
+      files: ["flight_time_calc.py"],
+      gotchas: ["drone_config.json keys g and voltage_check are not read by the calculator."] },
+    dc_calc: { title: "calculate_flight_time()", sub: "seven steps",
+      summary: "Two-stage T/W logic: capability check at required_twr, then operating point at flight_twr, then energy ÷ power.",
+      files: ["flight_time_calc.py"],
+      children: ["ft_pick","ft_mtow","ft_cap","ft_op","ft_pwr","ft_batt","ft_time"] },
+    ft_pick: { title: "1 · Pick parts", sub: "by name or index",
+      summary: "Chooses motor and battery from the database lists by name (case-insensitive) or integer index; reads counts and masses with defaults (4 motors, 1 battery, 0.6 kg structure, 0.1 kg payload).",
+      files: ["flight_time_calc.py"],
+      gotchas: ["Index means position in each list: motors in motor_id order, batteries in alphabetical order."] },
+    ft_mtow: { title: "2 · Mass budget", sub: "MTOW, empty weight",
+      summary: "MTOW = structure + payload + n·motor_mass + n_bat·battery_mass; empty = MTOW − payload. Rejects if empty > max_empty_weight.",
+      files: ["flight_time_calc.py"] },
+    ft_cap: { title: "3 · Capability check", sub: "can it reach required T/W?",
+      summary: "Per-motor requirement = (required_twr ÷ cos(bank)) ÷ n. Motor curve T/W = thrust_g ÷ (MTOW·1000). Raises 'motor cannot meet required thrust ratio' if the curve never gets there.",
+      files: ["flight_time_calc.py"] },
+    ft_op: { title: "4 · Operating point", sub: "first throttle that reaches flight T/W",
+      summary: "First curve row where T/W ≥ (flight_twr ÷ cos(bank)) ÷ n; its power_w is the per-motor cruise power.",
+      files: ["flight_time_calc.py"] },
+    ft_pwr: { title: "5 · Total power", sub: "avionics + motors",
+      summary: "P_total = avionics_power (6 W default) + n·P_motor.",
+      files: ["flight_time_calc.py"] },
+    ft_batt: { title: "6 · Battery energy", sub: "depth of discharge",
+      summary: "DoD = (Vmax − Vland)/(Vmax − Vmin); usable Wh = charge_Ah · V_nominal · DoD; total = n_bat · usable.",
+      files: ["flight_time_calc.py"] },
+    ft_time: { title: "7 · Flight time", sub: "t = E·60 / P",
+      summary: "flight_time_min = energy_Wh · 60 / P_total, returned with MTOW, empty weight, payload ratio, chosen throttle, DoD, max raw thrust and the part names.",
+      files: ["flight_time_calc.py"] },
+
+    /* =========================== PROPULSION MODEL =========================== */
+    prop: { title: "Propulsion model", sub: "DC motor + blade-element rotor", dom: "model",
+      summary: "Package aerodynamic_model (pip install -e Src/Propulsion-model). A motor equivalent-circuit solver and a propeller blade-element-momentum solver. Used by the Propulsion tab and the command line only.",
+      files: ["motor.py","single_rotor.py","geometry.py","airfoil.py","atmosphere.py"],
+      gotchas: ["Not wired into the digital twin: the twin's motors come from measured/synthetic curves in the database, not from these solvers. The motor and propeller are deliberately separate — no coupled solver ships."],
+      children: ["pm_motor","pm_rotor","pm_cli","pm_apc","pm_polars"] },
+    pm_motor: { title: "DC motor model", sub: "solve_motor_equilibrium()",
+      summary: "Kv_si = Kv·2π/60; Rm_eff = Rm·(1 + 0.004(T − 20)); V_eff = η_ESC·throttle·V_batt; ω = (V_eff/Rm − I0 − τ_load·Kv_si)/(1/(Kv_si·Rm) + k_iron); I = max((V_eff − ω/Kv_si)/Rm, I0 + k_iron·ω); torque = (I − I0 − k_iron·ω)/Kv_si. Returns rpm, current, torque, shaft and electrical power, efficiency.",
+      files: ["motor.py"],
+      gotchas: ["Fixed external load torque (bench-style), not derived from a propeller.",
+                "Zero effective voltage returns an all-zero result instead of raising."] },
+    pm_rotor: { title: "BEMT single rotor", sub: "geometry + polars → thrust",
+      summary: "Blade-element momentum: split the blade into stations, solve inflow angle at each so momentum and blade-element forces agree, integrate thrust and torque.",
+      files: ["single_rotor.py","geometry.py","airfoil.py","atmosphere.py"],
+      children: ["pr_geo","pr_air","pr_atm","pr_bemt","pr_solve"] },
+    pr_geo: { title: "Blade geometry", sub: "get_blade_geometry()",
+      summary: "Scans the APC .PE0 files, parses diameter×pitch from each file name, and takes the closest one if the combined relative error is ≤ 6 %. Resamples chord to 20 stations and sets twist from pitch: atan(P/(2π·r)).",
+      files: ["geometry.py"],
+      gotchas: ["No match → NotImplementedError 'No APC geometry matches …'."] },
+    pr_air: { title: "Airfoil polars", sub: "get_airfoil_polars()",
+      summary: "Cl/Cd versus angle of attack (−5…25°, 61 points) for Reynolds numbers 10 k…1 M from NeuralFoil. Cached in memory and on disk (md5 key). Without NeuralFoil it falls back to thin-airfoil theory plus an Oswald drag term with a warning.",
+      files: ["airfoil.py"],
+      gotchas: ["Optional dependencies neuralfoil / aerosandbox: without them the airfoil name has no real effect."] },
+    pr_atm: { title: "Atmosphere", sub: "ρ = 1.225 kg/m³",
+      summary: "Sea-level constants (RHO_SL, NU_SL) used as defaults. An ISA altitude class also exists but the solvers do not use it yet.",
+      files: ["atmosphere.py"] },
+    pr_bemt: { title: "pyBEMT (submodule)", sub: "upstream equations", dom: "ext",
+      summary: "Third-party pyBEMT library pulled in as a git submodule. Its section equations are used unchanged; its bundled airfoil table is the fallback when no polars are supplied.",
+      files: ["pybemt"],
+      gotchas: ["Empty folder until `git submodule update --init --recursive` (setup script does it)."] },
+    pr_solve: { title: "Rotor solver", sub: "solve_single_rotor()",
+      summary: "Per station: bisect for inflow angle φ in [0.01π, 0.9π] (fallback: 3600-point brute-force scan), Prandtl tip loss, Cl/Cd at the local Reynolds number ρ|ω|rc/μ. Sums T and Q, P = Qω, CT, CQ, CP, advance ratio J, efficiency. Optionally returns radial arrays for plotting.",
+      files: ["single_rotor.py"],
+      gotchas: ["rpm ≤ 0 short-circuits to an all-zero result."] },
+    pm_cli: { title: "Command-line scripts", sub: "motor.py · single_rotor_analysis.py",
+      summary: "motor.py runs the DC motor solver from flags. single_rotor_analysis.py runs the rotor solve, optionally sweeping D, P, RPM or climb velocity, with matplotlib figures (--no-plots for a table only).",
+      files: ["motor.py","single_rotor_analysis.py"] },
+    pm_apc: { title: "APC geometry data", sub: "data/apc_geo/PE0-FILES_WEB", dom: "data",
+      summary: "Several thousand APC propeller performance files (.PE0) committed to the repo; only the chord distribution and the D×P in the file name are used.",
+      files: ["*.PE0"] },
+    pm_polars: { title: "Polar cache", sub: "data/polars_cache/*.pkl", dom: "data",
+      summary: "Disk cache of computed airfoil polars. Git-ignored; safe to delete.",
+      files: ["*.pkl"] },
+
+    /* =========================== DATABASE =========================== */
+    db: { title: "Motor & battery database", sub: "SQLite + two readers", dom: "data",
+      summary: "One SQLite file holds every motor curve and battery. Two independent readers use it: a dictionary-style API for the design tool and the GUI drop-downs, and a NumPy-based loader with a pickle cache that the physics model uses.",
+      files: ["Motor_battery_database.sqlite"],
+      children: ["db_file","db_seed","db_dc","db_sim"] },
+    db_file: { title: "SQLite file", sub: "Motor_battery_database.sqlite",
+      summary: "Tables: motors, motor_performance (throttle, V, I, P, rpm, torque, thrust, efficiency), motor_specs, batteries, plus motor_raw_data and battery_processed. Ships with 3 generic motors (Motor-A 920KV 10x4.5, Motor-B 750KV 18x6, AIR2216 KV920 -10*4.5) and 3 batteries (4S LiPo 5000 mAh, 6S LiPo 5000 mAh, 4S Lion 7000 mAh).",
+      files: ["Motor_battery_database.sqlite"],
+      gotchas: ["motor_raw_data and battery_processed are created but no runtime path reads them.",
+                "The committed file is the source of truth: edit it in a SQLite browser to add parts (motor_type must be 'Control')."] },
+    db_seed: { title: "Seed script", sub: "build_db.py",
+      summary: "Creates the schema and inserts the default motors and batteries. AIR2216 gets a 50-point curve; the other two get a synthetic quadratic-thrust curve.",
+      files: ["build_db.py"],
+      gotchas: ["Skips if the file already exists; pass --force to rebuild (this destroys any parts you added)."] },
+    db_dc: { title: "Design-tool DB API", sub: "db_api · db_schema · db_loader",
+      summary: "get_motors() → dicts with the full performance list and specs; get_batteries() → dicts with depth of discharge and usable energy computed on the fly; name lists for the GUI. add_motor / add_battery validate and insert.",
+      files: ["db_api.py","db_schema.py","db_loader.py"],
+      gotchas: ["Every call opens the DB and runs CREATE TABLE IF NOT EXISTS; nothing is cached.",
+                "add_motor / add_battery have no GUI route — they are library functions only."] },
+    db_sim: { title: "Physics-model loader", sub: "motor_battery_db.py",
+      summary: "load_databases() returns motors and batteries as NumPy records and builds the MotorLookup tables the physics model samples every tick.",
+      files: ["motor_battery_db.py","config.py"],
+      children: ["dbs_sql","dbs_cache","dbs_lookup"] },
+    dbs_sql: { title: "SQL read", sub: "motors ⋈ motor_performance",
+      summary: "One JOIN grouped by motor name, arrays sorted by throttle (np.interp needs it); batteries read separately.",
+      files: ["motor_battery_db.py"] },
+    dbs_cache: { title: "Cache logic", sub: "memo → pickle → SQLite",
+      summary: "In-memory memo first; else cache/motor_database.pkl and battery_database.pkl; else read SQLite and write the pickles. If the SQLite file is newer than the motor pickle, it reloads.",
+      files: ["motor_battery_db.py"],
+      gotchas: ["Pickles are git-ignored, so the first run after a clone builds them.",
+                "Only the motor pickle's timestamp is compared with the database."] },
+    dbs_lookup: { title: "MotorLookup", sub: "101-point throttle grid",
+      summary: "MotorLookup.from_record resamples thrust, torque, power, current and rpm onto throttle 0.00…1.00 with np.interp once; per-tick lookups use direct indexing.",
+      files: ["motor_battery_db.py"] },
+
+    /* =========================== CONFIG =========================== */
+    cfg: { title: "Config & param files", sub: "settings that shape a run", dom: "data",
+      summary: "Everything read before or during a launch: the twin's startup config, the airframe description, ArduPilot parameter files, the GUI's saved paths, and the design tool's defaults.",
+      children: ["cfg_startup","cfg_drone","cfg_parm","cfg_state","cfg_dcfg"] },
+    cfg_startup: { title: "Twin config", sub: "startup_config.json",
+      summary: "sim {sim_rate 400, seed 1} · actuator {enabled false, motor_tau_s 0.07} · sitl {udp_port 9002, verbose, preserve_eeprom true} · logging {enabled, path Results/run.csv} · telemetry {enabled, tcp://127.0.0.1:9010, 50 Hz} · drone_model · environment {rho, dryden{…}} · initial {pos_lla, pos_ned, v_body, euler, ang_rates} · viz {enabled false, fps, span_m}. Edited in the GUI text box.",
+      files: ["startup_config.json"],
+      gotchas: ["param_file (\"sitl-ground-truth.parm\") is never read — the parameter file is chosen in the GUI drop-down, and that name does not exist in the folder.",
+                "sim.seed set → dryden.seeds ignored. dryden.enabled false → no wind."] },
+    cfg_drone: { title: "Airframe", sub: "generic_quad.json",
+      summary: "Mass 1.453 kg, CAD inertia tensor (kg·mm²), CG and ground offset (mm), drag Cd and areas, four rotors {pwm_ch, arm position (mm), spin_dir ±1, motor_name}, PWM range, ground-contact constants. Rotor layout matches ArduCopter Quad-X (1 front-right, 2 rear-left, 3 front-left, 4 rear-right).",
+      files: ["generic_quad.json"],
+      gotchas: ["Unused fields: imu_count, battery (its name is not even in the database), rotor_aero, drag_reference_area."] },
+    cfg_parm: { title: "ArduPilot parameters", sub: "drone_sim_param_files/*.parm",
+      summary: "dt-ekf-paper.parm and dt-ground-truth-paper.parm (1429 lines each, CSV NAME,value). The GUI lists every *.parm / *.param in the folder; the chosen one is CR-stripped and copied into WSL at launch.",
+      files: ["dt-ekf-paper.parm","dt-ground-truth-paper.parm"],
+      gotchas: ["Windows line endings would break ArduPilot's parser — the launcher strips CR on every copy."] },
+    cfg_state: { title: "GUI state", sub: "Results/gui_state.json",
+      summary: "{host_ip, ardupilot_dir, venv_activate}. Written by setup.bat's prompts and by every Launch; read as defaults. Git-ignored.",
+      files: ["gui_state.json"],
+      gotchas: ["setup.sh does not ask for these; on Linux/macOS/WSL set them in the GUI or edit this file."] },
+    cfg_dcfg: { title: "Flight-time defaults", sub: "drone_config.json",
+      summary: "Base parameters for the command-line flight-time tool: masses, Motor_idx 2, Battery_idx 0, counts, T/W targets, avionics power.",
+      files: ["drone_config.json"],
+      gotchas: ["The GUI does not use this file; it posts every value itself."] },
+
+    results: { title: "Run log", sub: "Results/run.csv", dom: "data",
+      summary: "CSV written by the physics process (see CSV logger for the columns). The Results/ folder is git-ignored.",
+      files: ["run.csv"] },
+
+    /* =========================== TOOLS =========================== */
+    tools: { title: "Setup, tests & docs", sub: "install · verify · explain", dom: "tool",
+      summary: "Everything around the code: installer scripts, the small test suite, ArduPilot Lua fault scripts and the written documentation.",
+      children: ["tl_setup","tl_tests","tl_lua","tl_docs"] },
+    tl_setup: { title: "Setup scripts", sub: "setup.bat · setup.sh",
+      summary: "Create the .venv, install packages, fetch the pyBEMT submodule and install the propulsion package in editable mode. The Windows script also asks where ArduPilot is.",
+      files: ["setup.bat","setup.sh","requirements.txt"],
+      gotchas: ["requirements.txt has no pytest — install it yourself to run the tests.",
+                "Python 3.12, 3.11 or 3.10 preferred (bat tries in that order)."],
+      children: ["st_venv","st_deps","st_prompt"] },
+    st_venv: { title: "1 · Create .venv", sub: "py -3.12 / 3.11 / 3.10 / 3",
+      summary: "Creates .venv in the repo root if missing and activates it. VS Code is set to use .venv\\Scripts\\python.exe.",
+      files: ["setup.bat","setup.sh"] },
+    st_deps: { title: "2 · Install packages", sub: "pip · submodule · editable",
+      summary: "pip upgrade → pip install -r requirements.txt → git submodule update --init --recursive → pip install -e Src/Propulsion-model.",
+      files: ["setup.bat","setup.sh","requirements.txt"] },
+    st_prompt: { title: "3 · Ask for paths", sub: "setup.bat only",
+      summary: "Prompts for the ArduPilot directory (WSL path or \\\\wsl.localhost\\… form; Enter keeps ~/ardupilot) and the venv activate script, and stores non-empty answers in Results/gui_state.json through gui.launcher.save_state.",
+      files: ["setup.bat"] },
+    tl_tests: { title: "Tests", sub: "pytest",
+      summary: "tests/test_motor_dynamics.py (motor lag and PWM mapping, 12 tests) with a conftest that adds Src/DT to the path; Src/Propulsion-model/tests (motor equilibrium is physical, APC single-rotor smoke). Run from the repo root.",
+      files: ["test_motor_dynamics.py","test_motor.py","test_single_rotor.py","conftest.py"],
+      gotchas: ["No tests for the SITL connector, RK4/state, ground/aero, the GUI server, the launcher or the flight-time calculator."] },
+    tl_lua: { title: "Lua fault scripts", sub: "Lua-scripts-fault-journal-paper/",
+      summary: "imu_bias_z_* (±0.5, 1, 2, 5 m/s² accelerometer Z bias), imu_param_sweep.lua (bias → noise → vibration sweep), a heart-shaped mission (.waypoints) and a short readme. They run on ArduPilot, not the twin.",
+      files: ["imu_param_sweep.lua","imu_bias_z_1p0.lua","journal-paper-heart-mission.waypoints"] },
+    tl_docs: { title: "Documentation", sub: "README + README-Docs/",
+      summary: "Top-level README (setup, run, CLI), DT/ (README, drone plant equations, Dryden, ArduPilot SITL install guide), Design-config-tool/, Propulsion-model/, database-doc.md, and these two explorer pages.",
+      files: ["README.md","drone-plant-readme.md","dryden-turbulence-readme.md","ArduPilot-SITL-install-guide.md"],
+      gotchas: ["Rule: code wins over docs. Known drift: drone-plant-readme says g = 9.81 (code 9.80665); DT README lists optional mag/baro JSON fields the code does not send."] }
+  },
+
+  edges: [
+    /* ---- browser <-> server ---- */
+    { from:"srv_static", to:"ui_shell", label:"index.html, app.js, styles.css", transport:"HTTP GET (no-store)", port:"8080", src:"server.py StaticFiles + no_cache" },
+    { from:"srv_static", to:"ui_vendor", label:"/vendor/uplot, /vendor/three", transport:"HTTP GET", port:"8080" },
+    { from:"ui_shell", to:"api_options", label:"GET /api/options", transport:"HTTP GET", port:"8080", rate:"page load", src:"server.py options" },
+    { from:"su_cfg", to:"api_config", label:"GET / PUT /api/config/startup", transport:"HTTP JSON", port:"8080", rate:"page load; Save", src:"server.py read_config, write_config" },
+    { from:"su_launch", to:"api_status", label:"GET /api/status (saved dirs, IP)", transport:"HTTP GET", port:"8080", rate:"page load", src:"server.py status" },
+    { from:"su_ip", to:"api_status", label:"GET /api/detect-ip", transport:"HTTP GET", port:"8080", rate:"on click", src:"server.py detect_ip" },
+    { id:"http_launch", from:"su_launch", to:"api_launch", label:"POST /api/launch {param_file, ip, dirs, config}", transport:"HTTP POST", port:"8080", rate:"on click", src:"server.py launch; app.js #launch" },
+    { from:"su_launch", to:"api_launch", label:"POST /api/stop", transport:"HTTP POST", port:"8080", rate:"on click", src:"server.py stop" },
+    { from:"api_launch", to:"su_launch", label:"status JSON, or 409 error text", transport:"HTTP response", port:"8080" },
+    { from:"ui_flight", to:"api_flight", label:"POST /api/flight-time {motor, battery, masses, T/W …}", transport:"HTTP POST", port:"8080", rate:"on click", src:"server.py flight_time" },
+    { from:"api_flight", to:"ui_flight", label:"flight_time_min, MTOW, power … (or 400)", transport:"HTTP response", port:"8080" },
+    { from:"pp_motor", to:"api_motor", label:"POST /api/propulsion/motor", transport:"HTTP POST", port:"8080", rate:"on click", src:"server.py propulsion_motor" },
+    { from:"api_motor", to:"pp_motor", label:"operating point + 19-point throttle sweep", transport:"HTTP response", port:"8080" },
+    { from:"pp_prop", to:"api_rotor", label:"POST /api/propulsion/propeller", transport:"HTTP POST", port:"8080", rate:"on click", src:"server.py propulsion_propeller" },
+    { from:"api_rotor", to:"pp_prop", label:"T, Q, P, CT, CQ, η + radial arrays", transport:"HTTP response", port:"8080" },
+    { id:"ws_tel", from:"api_ws", to:"lv_ws", label:"telemetry + status JSON frames", transport:"WebSocket", port:"8080 /ws/telemetry", rate:"telemetry ≤ 50 Hz; status ~10 s", src:"server.py websocket; telemetry.py _fan_out" },
+
+    /* ---- inside the browser ---- */
+    { from:"ui_shell", to:"su_launch", label:"boot: fills param list + saved paths", transport:"in-page call" },
+    { from:"ui_shell", to:"ui_flight", label:"boot: motor / battery lists", transport:"in-page call" },
+    { from:"ui_shell", to:"lv_ws", label:"connectWS() at boot", transport:"in-page call" },
+    { from:"su_wipe", to:"su_cfg", label:"sets sitl.preserve_eeprom in the JSON", transport:"in-page" },
+    { from:"su_cfg", to:"su_launch", label:"config JSON sent with Launch", transport:"in-page" },
+    { from:"su_ip", to:"su_launch", label:"Host IP field", transport:"in-page" },
+    { from:"lv_ws", to:"ui_status", label:"'status' messages", transport:"in-page call", rate:"~10 s" },
+    { from:"lv_ws", to:"lv_ring", label:"'telemetry' frames (Live tab opened)", transport:"in-page", rate:"≤ 50 Hz" },
+    { from:"lv_ws", to:"lv_3d", label:"pos_ned → (E, N, Up)", transport:"in-page" },
+    { from:"lv_ws", to:"lv_cards", label:"latest altitude, wind, accel, gyro", transport:"in-page" },
+    { from:"lv_ring", to:"lv_charts", label:"ring → arrays (once per animation frame)", transport:"in-page" },
+    { from:"ui_vendor", to:"lv_charts", label:"uPlot", transport:"script include" },
+    { from:"ui_vendor", to:"lv_3d", label:"three.js + OrbitControls", transport:"dynamic import()" },
+    { from:"ui_vendor", to:"pp_motor", label:"uPlot", transport:"script include" },
+    { from:"ui_vendor", to:"pp_prop", label:"uPlot", transport:"script include" },
+
+    /* ---- GUI server internals ---- */
+    { from:"srv_entry", to:"telem_hub", label:"startup: start SUB thread; shutdown: stop", transport:"FastAPI events", src:"server.py startup/shutdown" },
+    { from:"srv_entry", to:"launcher", label:"shutdown: launcher.stop()", transport:"FastAPI events" },
+    { from:"api_options", to:"srv_cfgio", label:"options()", transport:"function call" },
+    { from:"api_config", to:"srv_cfgio", label:"read_config / write_config", transport:"function call" },
+    { from:"api_launch", to:"srv_cfgio", label:"write_config('startup', config) before launch", transport:"function call" },
+    { from:"srv_cfgio", to:"cfg_startup", label:"read / atomic write (.tmp → replace)", transport:"JSON file" },
+    { from:"srv_cfgio", to:"cfg_drone", label:"drone:<name> read / write (API only)", transport:"JSON file" },
+    { from:"cfg_parm", to:"srv_cfgio", label:"list *.parm / *.param names", transport:"directory listing" },
+    { from:"db_dc", to:"srv_cfgio", label:"motor + battery names", transport:"import (db_schema)" },
+    { from:"api_status", to:"lm_state", label:"status()", transport:"function call" },
+    { from:"api_status", to:"lm_ip", label:"get_host_ip(force)", transport:"function call" },
+    { from:"api_launch", to:"lm_ip", label:"launch(param_file, ip, dirs, config)", transport:"function call (thread)" },
+    { from:"api_launch", to:"lm_stop", label:"stop()", transport:"function call (thread)" },
+
+    /* ---- launcher ---- */
+    { from:"lm_ip", to:"lm_checks", seq:true },
+    { from:"lm_checks", to:"lm_backend", seq:true },
+    { from:"lm_backend", to:"lm_cmd", seq:true },
+    { from:"lm_state", to:"lm_ip", label:"cached IP; saved ArduPilot dir + venv defaults", transport:"in-process" },
+    { from:"lm_state", to:"cfg_state", label:"save / load", transport:"JSON file" },
+    { from:"lm_paths", to:"lm_checks", label:"Linux path of ArduPilot dir", transport:"function call" },
+    { from:"lm_paths", to:"lm_cmd", label:"Linux paths (cd, source, param folder)", transport:"function call" },
+    { from:"lm_cmd", to:"lm_spawn", label:"bash command string", transport:"function call" },
+    { id:"wsl_ip", from:"lm_ip", to:"fc", label:"ip route show default → host IP", transport:"wsl.exe -e bash -lc", rate:"only if not cached", src:"launcher.py get_host_ip" },
+    { from:"lm_checks", to:"fc", label:"test -d dir && test -f Tools/autotest/sim_vehicle.py", transport:"wsl.exe -e bash -lc", src:"launcher.py _validate_wsl_dir" },
+    { id:"spawn_dt", from:"lm_backend", to:"dt_boot", label:"python main.py (cwd Src/DT, DT_TELEMETRY_ENABLED=1)", transport:"subprocess", src:"launcher.py launch" },
+    { id:"spawn_wsl", from:"lm_spawn", to:"ap_sv", label:"wt.exe / new console → wsl.exe -e bash -lc <cmd>", transport:"subprocess", src:"launcher.py launch" },
+    { from:"cfg_parm", to:"lm_cmd", label:".parm path (/mnt/<drive>/…/drone_sim_param_files)", transport:"file path" },
+    { from:"lm_stop", to:"dt", label:"taskkill /F /T (Windows) or terminate()", transport:"process signal" },
+    { from:"lm_stop", to:"ap_sv", label:"pkill -INT sim_vehicle.py; pkill -9 arducopter|mavproxy", transport:"wsl.exe -e bash -lc" },
+
+    /* ---- telemetry hub ---- */
+    { id:"zmq_tel", from:"dt_tpub", to:"th_sub", label:"telemetry + status JSON", transport:"ZMQ PUB/SUB (tcp)", port:"9010", rate:"50 Hz sim time; status ~10 s", src:"telemetry_pub.py; telemetry.py DEFAULT_ENDPOINT" },
+    { from:"th_sub", to:"th_drain", label:"socket readable (poll 30 ms)", transport:"in-process" },
+    { from:"th_drain", to:"th_fan", label:"newest payload only", transport:"in-process" },
+    { from:"api_ws", to:"th_fan", label:"add_client / remove_client", transport:"function call" },
+    { from:"th_fan", to:"api_ws", label:"send_json to each socket", transport:"asyncio" },
+
+    /* ---- twin: startup ---- */
+    { from:"cfg_startup", to:"dt_boot", label:"sim, sitl, logging, telemetry, viz, environment, initial", transport:"JSON file" },
+    { from:"cfg_drone", to:"dt_boot", label:"airframe, rotors, pwm, ground_contact", transport:"JSON file" },
+    { from:"dt_boot", to:"sim_veh", label:"Simulation(startup, drone) → _build_vehicle", transport:"constructor" },
+    { from:"dt_boot", to:"dy_filter", label:"W20, dt_filt, seeds / SeedSequence.spawn", transport:"constructor" },
+    { from:"dt_boot", to:"dy_out", label:"mean wind speed, heading, vertical", transport:"constructor" },
+    { from:"dt_boot", to:"rk_commit", label:"lla0 = initial.pos_lla (flat-earth origin)", transport:"constructor" },
+    { from:"dt_boot", to:"stv_y", label:"StateVector.from_initial (pos_ned, v_body, euler→quat, ang_rates)", transport:"constructor" },
+    { from:"dt_boot", to:"lk_sock", label:"SITLConnector(udp_port, …) — binds UDP 9002", transport:"constructor" },
+    { from:"dt_boot", to:"dt_log", label:"StateLogger(path) if logging.enabled", transport:"constructor" },
+    { from:"dt_boot", to:"dt_viz", label:"Process(run_viz) if viz.enabled", transport:"multiprocessing" },
+    { from:"dt_boot", to:"dt_tpub", label:"make_telemetry_publisher()", transport:"constructor" },
+    { from:"dt_boot", to:"lp_recv", seq:true },
+    { from:"dbs_lookup", to:"sim_veh", label:"MotorLookup per rotor (name + type 'control')", transport:"in-process, at startup" },
+
+    /* ---- ArduPilot <-> twin (lock-step) ---- */
+    { id:"pwm", from:"ap_json", to:"lk_sock", label:"motor PWM frame (magic, frame_rate, frame_count, pwm[16])", transport:"UDP binary", port:"9002", rate:"1 per ArduPilot loop (lock-step)", src:"ardupilot_sitl_connector.py recv_pwm" },
+    { id:"fdm", from:"lk_sock", to:"ap_json", label:"JSON state {timestamp, imu, position, velocity, attitude}", transport:"UDP JSON, newline-framed", port:"9002", rate:"1 per PWM frame", src:"ardupilot_sitl_connector.py send_state" },
+    { from:"lk_sock", to:"lk_parse", label:"datagram bytes", transport:"recvfrom" },
+    { from:"lk_parse", to:"lk_seq", label:"frame_rate, frame_count, pwm[]", transport:"in-process" },
+    { id:"rx", from:"lk_seq", to:"lp_recv", label:"RecvResult {pwm, frame_rate, frame_count, reset, missed}", transport:"return value" },
+    { from:"lk_seq", to:"lk_encode", label:"reply address (last sender)", transport:"in-process" },
+    { from:"lk_encode", to:"lk_sock", label:"JSON bytes → sendto(last_addr)", transport:"sendto" },
+
+    /* ---- main loop ---- */
+    { from:"lp_recv", to:"lp_reset", seq:true },
+    { from:"lp_reset", to:"lp_dt", seq:true },
+    { from:"lp_dt", to:"lp_tick", label:"dt", transport:"in-process" },
+    { from:"lp_recv", to:"lp_dt", label:"frame_rate", transport:"in-process" },
+    { from:"lp_recv", to:"lp_tick", label:"pwm[16]", transport:"in-process" },
+    { from:"lp_tick", to:"lp_send", seq:true },
+    { from:"lp_send", to:"lp_telem", seq:true },
+    { from:"lp_telem", to:"lp_stats", seq:true },
+    { from:"lp_stats", to:"lp_viz", seq:true },
+    { from:"lp_viz", to:"lp_log", seq:true },
+    { from:"lp_reset", to:"dt_sim", label:"sim.reset() (RNG re-seed, lag state, initial state)", transport:"function call" },
+    { id:"tick", from:"lp_tick", to:"s_pwm", label:"pwm[16] (µs)", transport:"function call sim.tick()", rate:"per frame", src:"simulation.py tick" },
+    { from:"lp_tick", to:"s_lag", label:"dt", transport:"function call" },
+    { from:"lp_tick", to:"rk_stages", label:"dt", transport:"function call" },
+    { from:"lp_tick", to:"lp_stats", label:"tick_us (wall µs inside tick)", transport:"in-process" },
+    { id:"plant_out", from:"stv_y", to:"lp_send", label:"x_ned, ω_body", transport:"in-process" },
+    { from:"stv_derived", to:"lp_send", label:"euler, v_ned", transport:"in-process" },
+    { from:"stv_post", to:"lp_send", label:"accel_bb", transport:"in-process" },
+    { from:"lp_send", to:"lk_encode", label:"state, sim_time", transport:"function call send_state()" },
+    { from:"stv_y", to:"lp_telem", label:"pos_ned, quat_wxyz, ω_body", transport:"in-process" },
+    { from:"stv_derived", to:"lp_telem", label:"lla (altitude), v_ned", transport:"in-process" },
+    { from:"stv_post", to:"lp_telem", label:"accel_bb", transport:"in-process" },
+    { from:"dy_out", to:"lp_telem", label:"sim.v_gust_ned (wind_ned)", transport:"in-process" },
+    { id:"tele_snap", from:"lp_telem", to:"dt_tpub", label:"{type:'telemetry', t, accel, gyro, *_alt, wind_ned, pos_ned, quat_wxyz}", transport:"function call maybe_send()", rate:"50 Hz (sim time)", src:"main.py _build_telemetry" },
+    { from:"lk_stats", to:"lp_stats", label:"metrics dict (every 10 s wall)", transport:"return value" },
+    { from:"lp_stats", to:"dt_tpub", label:"{type:'status', fps, realtime_pct, cpu_pct, …}", transport:"function call send()", rate:"every 10 s" },
+    { from:"stv_y", to:"lp_viz", label:"pos_ned, quat_wxyz", transport:"in-process" },
+    { from:"lp_viz", to:"dt_viz", label:"{t, pos_ned, quat_wxyz}", transport:"multiprocessing.Queue(1) put_nowait", rate:"viz.fps (30)", src:"main.py" },
+    { from:"stv_y", to:"lp_log", label:"x_ned, v_body, ω_body", transport:"in-process" },
+    { from:"stv_derived", to:"lp_log", label:"euler", transport:"in-process" },
+    { from:"lp_log", to:"dt_log", label:"row per frame", transport:"function call" },
+    { id:"log_csv", from:"dt_log", to:"results", label:"run.csv rows (t, pos, v_body, euler, rates, realtime_pct)", transport:"file append + flush", rate:"per frame (~400/s)", src:"logger.py" },
+
+    /* ---- physics chain ---- */
+    { from:"sim_veh", to:"s_pwm", label:"rotor channels, pwm_min / pwm_max", transport:"in-process" },
+    { from:"sim_veh", to:"mo_interp", label:"MotorLookup per rotor", transport:"in-process" },
+    { from:"sim_veh", to:"mo_moment", label:"arm positions (CG-relative), spin_dir", transport:"in-process" },
+    { from:"sim_veh", to:"s_ground", label:"cg_ground_offset, k_spring, c_damp, μ, k_lat, k_rot", transport:"in-process" },
+    { from:"sim_veh", to:"s_aero", label:"Cd, area, Cd_moment, mass, ρ", transport:"in-process" },
+    { from:"sim_veh", to:"rk_rhs", label:"mass, inertia, inertia⁻¹", transport:"in-process" },
+    { id:"thr", from:"s_pwm", to:"s_lag", label:"throttle per rotor (0…1)", transport:"in-process" },
+    { from:"s_lag", to:"mo_interp", label:"lagged throttle", transport:"in-process" },
+    { from:"mo_interp", to:"mo_force", label:"thrust [N]", transport:"in-process" },
+    { from:"mo_interp", to:"mo_moment", label:"thrust [N], torque [N·m]", transport:"in-process" },
+    { id:"motor_fm", from:"mo_force", to:"s_sum", label:"Σ F_motor [N], body axes", transport:"in-process" },
+    { from:"mo_moment", to:"s_sum", label:"Σ M_motor [N·m], body axes", transport:"in-process" },
+    { from:"s_ground", to:"s_sum", label:"contact force + moment", transport:"in-process" },
+    { from:"s_ground", to:"dy_filter", label:"on_ground → skip gust update", transport:"in-process" },
+    { from:"stv_y", to:"s_ground", label:"x_ned, ω_body", transport:"in-process (feedback)" },
+    { from:"stv_derived", to:"s_ground", label:"v_ned, dcm_be", transport:"in-process (feedback)" },
+    { from:"stv_y", to:"dy_scale", label:"altitude = −z_down, |v_body|", transport:"in-process (feedback)" },
+    { from:"stv_derived", to:"dy_out", label:"dcm_be (body → NED)", transport:"in-process (feedback)" },
+    { from:"dy_scale", to:"dy_filter", label:"L_u,v,w ; σ_uv, σ_w ; V", transport:"in-process" },
+    { from:"dy_filter", to:"dy_out", label:"u_g, v_g, w_g (body)", transport:"in-process" },
+    { from:"dy_out", to:"s_aero", label:"v_gust_ned", transport:"in-process" },
+    { from:"stv_derived", to:"s_aero", label:"v_ned, dcm_be", transport:"in-process (feedback)" },
+    { from:"stv_y", to:"s_aero", label:"ω_body", transport:"in-process (feedback)" },
+    { from:"s_aero", to:"s_sum", label:"drag + gravity force, drag moment", transport:"in-process" },
+    { id:"sum", from:"s_sum", to:"rk_stages", label:"F_total [N], M_total [N·m] (held over the step)", transport:"in-process" },
+    { from:"s_sum", to:"rk_post", label:"F_total", transport:"in-process" },
+    { from:"stv_y", to:"rk_stages", label:"y₀ (13 states)", transport:"in-process (feedback)" },
+    { from:"rk_stages", to:"rk_rhs", label:"y + ½h·k → derivative request (×4)", transport:"function call" },
+    { from:"rk_rhs", to:"rk_stages", label:"ẏ (13)", transport:"return value" },
+    { from:"rk_stages", to:"rk_commit", label:"y_new", transport:"in-process" },
+    { from:"rk_commit", to:"rk_post", seq:true },
+    { id:"commit", from:"rk_commit", to:"stv_y", label:"y_new (13 states, quaternion renormalised)", transport:"in-place update" },
+    { from:"rk_commit", to:"stv_derived", label:"dcm_be, euler, v_ned, lat/lon/alt", transport:"in-place update" },
+    { from:"rk_post", to:"stv_post", label:"accel_bb, accel_bi, ω̇", transport:"in-place update" },
+
+    /* ---- ArduPilot internals ---- */
+    { from:"ap_sv", to:"ap_json", label:"--model JSON:<host ip>", transport:"command-line flag" },
+    { from:"ap_sv", to:"ap_mav", label:"starts MAVProxy, --out=udp:<host ip>:14551", transport:"command-line flag" },
+    { id:"ap_sens", from:"ap_json", to:"ap_est", label:"IMU gyro + accel; true position, velocity, attitude", transport:"in-process" },
+    { id:"ap_estimate", from:"ap_est", to:"ap_ctrl", label:"attitude, position, velocity estimate", transport:"in-process" },
+    { id:"ap_mix", from:"ap_ctrl", to:"ap_json", label:"motor PWM (mixer output)", transport:"in-process" },
+    { from:"ap_par", to:"ap_est", label:"AHRS_EKF_TYPE, filter settings", transport:"parameters" },
+    { from:"ap_par", to:"ap_ctrl", label:"gains, modes, failsafes", transport:"parameters" },
+    { from:"cfg_parm", to:"ap_par", label:"CR-stripped copy → ~/.dt_params/<file>", transport:"file copy in WSL (tr -d '\\r')", src:"launcher.py _build_sitl_cmd" },
+    { from:"ap_ctrl", to:"ap_mav", label:"MAVLink telemetry", transport:"MAVLink (MAVProxy master link)" },
+    { from:"ap_mav", to:"ap_ctrl", label:"GCS commands", transport:"MAVLink (MAVProxy master link)" },
+    { id:"mav_out", from:"ap_mav", to:"ext_gcs", label:"MAVLink telemetry", transport:"UDP", port:"14551", src:"launcher.py _build_sitl_cmd --out" },
+    { from:"ext_gcs", to:"ap_mav", label:"commands, mission / script upload", transport:"UDP reply", port:"14551" },
+    { from:"ap_lua", to:"ap_est", label:"SIM_ACC1_BIAS/RND, SIM_VIB_FREQ (fault injection)", transport:"param:set()" },
+    { from:"tl_lua", to:"ap_lua", label:".lua copied to <ardupilot>/scripts (SCR_ENABLE=1)", transport:"manual file copy" },
+
+    /* ---- design tool ---- */
+    { from:"api_flight", to:"ft_pick", label:"calculate_flight_time(body, verbose=False)", transport:"function call (thread)" },
+    { from:"ft_time", to:"api_flight", label:"result dict", transport:"return value" },
+    { from:"cfg_dcfg", to:"dc_cli", label:"base parameters (CLI only)", transport:"JSON file" },
+    { from:"dc_cli", to:"ft_pick", label:"params = JSON + flag overrides", transport:"function call" },
+    { from:"db_dc", to:"ft_pick", label:"get_motors(), get_batteries()", transport:"function call" },
+    { from:"ft_pick", to:"ft_mtow", label:"motor, battery, counts, masses", transport:"in-process" },
+    { from:"ft_pick", to:"ft_batt", label:"battery", transport:"in-process" },
+    { from:"ft_mtow", to:"ft_cap", label:"MTOW, empty weight", transport:"in-process" },
+    { from:"ft_cap", to:"ft_op", label:"T/W curve, per-motor target", transport:"in-process" },
+    { from:"ft_op", to:"ft_pwr", label:"P_motor at operating throttle", transport:"in-process" },
+    { from:"ft_pwr", to:"ft_time", label:"total power", transport:"in-process" },
+    { from:"ft_batt", to:"ft_time", label:"total energy [Wh]", transport:"in-process" },
+
+    /* ---- propulsion model ---- */
+    { from:"api_motor", to:"pm_motor", label:"solve_motor_equilibrium ×20 (1 point + 19 sweep)", transport:"function call (thread)" },
+    { from:"pm_motor", to:"api_motor", label:"rpm, current, torque, power, η", transport:"return value" },
+    { from:"api_rotor", to:"pr_geo", label:"get_blade_geometry(D, P, blades, rpm)", transport:"function call (thread)" },
+    { from:"api_rotor", to:"pr_air", label:"get_airfoil_polars(name)", transport:"function call (thread)" },
+    { from:"api_rotor", to:"pr_solve", label:"solve_single_rotor(geo, polars, rpm, V_climb, return_radial)", transport:"function call (thread)" },
+    { from:"pr_solve", to:"api_rotor", label:"T, Q, P, CT, CQ, η + radial arrays", transport:"return value" },
+    { from:"pm_apc", to:"pr_geo", label:"chord vs r; D×P from file name", transport:"file read" },
+    { from:"pr_geo", to:"pr_solve", label:"r, chord, twist, R, B", transport:"in-process" },
+    { from:"pr_air", to:"pr_solve", label:"Cl, Cd tables", transport:"in-process" },
+    { from:"pr_air", to:"pm_polars", label:"cache read / write", transport:"pickle file" },
+    { from:"pr_atm", to:"pr_solve", label:"ρ = 1.225", transport:"import" },
+    { from:"pr_bemt", to:"pr_solve", label:"section equations, fallback airfoil table", transport:"import" },
+    { from:"pm_cli", to:"pm_motor", label:"argparse flags", transport:"function call" },
+    { from:"pm_cli", to:"pr_solve", label:"argparse flags, sweeps", transport:"function call" },
+
+    /* ---- database ---- */
+    { from:"db_seed", to:"db_file", label:"CREATE + INSERT (only if file missing)", transport:"SQL" },
+    { from:"db_file", to:"db_dc", label:"SELECT motors + performance + specs; batteries", transport:"SQL" },
+    { from:"db_file", to:"dbs_sql", label:"JOIN motors ⋈ motor_performance; batteries", transport:"SQL" },
+    { from:"dbs_sql", to:"dbs_cache", label:"MotorRecord[], BatteryRecord[]", transport:"in-process" },
+    { from:"dbs_cache", to:"dbs_lookup", label:"MotorRecord per motor", transport:"in-process" },
+
+    /* ---- setup, tests ---- */
+    { from:"st_venv", to:"st_deps", seq:true },
+    { from:"st_deps", to:"st_prompt", seq:true },
+    { from:"st_prompt", to:"cfg_state", label:"ardupilot_dir, venv_activate", transport:"gui.launcher.save_state" }
+  ],
+
+  traces: [
+    { id:"launch", title: "Launch sequence: from a click to a flying simulation",
+      intro: "What happens between pressing Launch and the first telemetry point on screen. Click a step to jump to that level with the relevant block or wire highlighted.",
+      steps: [
+        { level:"gui_server", node:"srv_entry", text:"You run `python -m gui`. FastAPI serves the page on port 8080, starts the telemetry thread and opens your browser." },
+        { level:"browser", node:"ui_shell", text:"The page boots: it loads the parameter-file, motor and battery lists, the startup config, and the saved ArduPilot dir / venv, then opens the WebSocket." },
+        { level:"browser", edge:"http_launch", text:"On the Setup tab you pick a parameter file, click Detect IP, check the paths and press Launch. The browser posts everything, including the config text box, to /api/launch." },
+        { level:"launcher", node:"lm_checks", text:"The server saves the config, works out the host IP, then checks that ArduPilot really exists in WSL. Any failure stops here with a clear message and nothing has been started." },
+        { level:"launcher", edge:"spawn_dt", text:"The physics process starts first (python main.py with telemetry switched on), so its UDP socket is ready before ArduPilot speaks." },
+        { level:"launcher", node:"lm_cmd", text:"The launcher builds the WSL command: convert paths, copy the .parm into ~/.dt_params with line endings fixed, and call sim_vehicle.py with --model JSON:<ip>." },
+        { level:"launcher", edge:"spawn_wsl", text:"A Windows Terminal tab (or console) opens running that command inside WSL — that window is ArduPilot's boot log and MAVProxy." },
+        { level:"dt", node:"dt_boot", text:"Meanwhile the twin loaded its two JSON files, built the vehicle from the motor database, bound UDP 9002 and is now blocked waiting for a frame." },
+        { level:"dt_link", edge:"pwm", text:"ArduPilot finishes booting and sends its first PWM frame. The twin prints 'Connected to …' and remembers the sender address. Lock-step begins." },
+        { level:"root", edge:"ws_tel", text:"The twin publishes telemetry on ZMQ 9010; the GUI server keeps only the newest frame and pushes it to every browser over the WebSocket." },
+        { level:"browser", node:"ui_live", text:"Open Live Data: the charts and 3D trail start filling, and the status bar shows Realtime %, CPU, FPS and Connected." },
+        { level:"launcher", node:"lm_stop", text:"Stop kills the physics process and pkills sim_vehicle / arducopter / mavproxy inside WSL." }
+      ] },
+    { id:"tick", title: "One physics frame: PWM in, state out",
+      intro: "A single lock-step exchange, about 400 times per simulated second. Neither side moves until the other answers.",
+      steps: [
+        { level:"fc", edge:"ap_mix", text:"ArduPilot finishes one control loop; the motor mixer has produced a PWM value for every motor." },
+        { level:"dt_link", edge:"pwm", text:"ArduPilot sends one binary frame over UDP 9002 and then blocks, waiting for the reply." },
+        { level:"dt_link", node:"lk_seq", text:"The twin checks the magic and length, spots restarts, duplicates and missed frames, and returns the PWM array." },
+        { level:"dt_loop", node:"lp_dt", text:"The main loop picks dt = min(1/frame rate, 1/400 s) and calls sim.tick(pwm, dt)." },
+        { level:"dt_sim", edge:"tick", text:"Inside the physics: PWM is turned into throttle 0…1, optionally smoothed by the motor lag, and looked up in the motor database curve." },
+        { level:"s_motor", node:"mo_moment", text:"Each rotor gives thrust along −Z body plus a moment from its arm and a reaction torque from its spin direction." },
+        { level:"dt_sim", edge:"sum", text:"Ground contact (spring-damper), Dryden gust and drag (when airborne) and gravity are added: total force and moment on the body." },
+        { level:"s_rk4", node:"rk_stages", text:"Four RK4 evaluations of the rigid-body equations advance position, velocity, attitude and rates by dt." },
+        { level:"s_rk4", edge:"commit", text:"The new 13-state vector is committed to the StateVector, which recomputes the rotation matrix, Euler angles, NED velocity and latitude/longitude. The full plant walk-through is in trace C." },
+        { level:"dt_link", edge:"fdm", text:"The connector converts to what ArduPilot expects — gyro, body acceleration with gravity removed, position, velocity, attitude — and sends it as one JSON line to the same address." },
+        { level:"fc", edge:"ap_sens", text:"ArduPilot reads the reply as sensor data, synthesises GPS/baro/compass itself, and its estimator produces the next attitude/position estimate. Then the loop repeats." },
+        { level:"dt_loop", node:"lp_telem", text:"After replying, the twin does its side work: a 50 Hz telemetry snapshot, a status message every 10 s, an optional 3D frame, and one CSV row." }
+      ] },
+    { id:"plant", title: "Inside the drone plant: PWM in, states out (one tick)",
+      intro: "The same frame as B, zoomed into the drone plant. Every tick the plant receives pwm[16] and dt, runs eight stages in order, and updates the StateVector that the rest of the twin reads. Steps that highlight a wire list the exact signals on it in the side panel.",
+      steps: [
+        { level:"dt_sim", edge:"tick", text:"Input: the main loop hands the plant pwm[16] in microseconds plus dt (and, after an ArduPilot restart, a reset). The plant also holds its previous state — the feedback wires from the StateVector on the right." },
+        { level:"dt_sim", edge:"thr", text:"Stage 1 · each rotor picks its own channel (pwm_ch) and converts it to throttle: (pwm − 1000)/(2000 − 1000), clipped to 0…1. For generic_quad the four rotors use channels 1, 4, 2, 3." },
+        { level:"dt_sim", node:"s_lag", text:"Stage 2 · optional first-order motor lag (τ = 0.07 s). Disabled in the shipped config, so throttle passes straight through." },
+        { level:"s_motor", node:"mo_interp", text:"Stage 3a · throttle indexes the motor's 101-point database curve to get thrust [gram-force] and torque [N·m] for that rotor." },
+        { level:"dt_sim", edge:"motor_fm", text:"Stage 3b · thrust becomes a force along −Z body; the arm (CG-relative) cross thrust plus the reaction torque × spin direction becomes a moment. Summed over the four rotors." },
+        { level:"dt_sim", node:"s_ground", text:"Stage 4 · ground contact reads position, rates, velocity and attitude from the previous state and returns a spring-damper + friction force and moment, and whether the drone is on the ground." },
+        { level:"s_dryden", node:"dy_filter", text:"Stage 5 · only if airborne and Dryden is enabled: the gust filter steps (every 0.1 s), is rotated into NED and added to the mean wind. On the ground the gust is zero." },
+        { level:"dt_sim", node:"s_aero", text:"Stage 6 · drag from the wind-relative velocity, plus gravity resolved into body axes (the only place weight enters the model)." },
+        { level:"dt_sim", edge:"sum", text:"Stage 7 · motor + drag + ground + gravity forces and moments are added: F_total and M_total, held constant for the whole step." },
+        { level:"s_rk4", node:"rk_stages", text:"Stage 8 · RK4 evaluates the rigid-body derivative four times (position from body velocity, v̇ = F/m − ω×v, quaternion rate, ω̇ = I⁻¹(M − ω×Iω)) and blends them into the new 13-state vector." },
+        { level:"s_rk4", edge:"commit", text:"Output: the new y is written back (quaternion renormalised) and the derived values — rotation matrix, Euler angles, NED velocity, latitude/longitude — are recomputed." },
+        { level:"dt_state", node:"stv_post", text:"Post-step accelerations (accel_bb, accel_bi, ω̇) complete the output bus." },
+        { level:"dt_sim", edge:"plant_out", text:"The plant is done. The main loop reads the state — position, rates, Euler angles, NED velocity, accel_bb — to build the JSON reply for ArduPilot, then telemetry, viz and CSV." }
+      ] }
+  ],
+
+  repo: [
+    { path: "gui/__main__.py", node: "srv_entry", what: "CLI entry: python -m gui [--port --host --no-browser]" },
+    { path: "gui/server.py", node: "srv_api", what: "FastAPI app: routes, WebSocket, static mount, no-store middleware" },
+    { path: "gui/config_io.py", node: "srv_cfgio", what: "Config names → files, atomic writes, drop-down options" },
+    { path: "gui/launcher.py", node: "launcher", what: "Starts/stops the physics process and the WSL SITL; saves gui_state.json" },
+    { path: "gui/telemetry.py", node: "telem_hub", what: "ZMQ SUB :9010 → WebSocket fan-out" },
+    { path: "gui/static/index.html · app.js · styles.css", node: "browser", what: "The single-page GUI" },
+    { path: "gui/static/vendor/", node: "ui_vendor", what: "uPlot and three.js copies (no CDN)" },
+    { path: "Src/DT/main.py", node: "dt_loop", what: "Physics process entry and main loop" },
+    { path: "Src/DT/Simulation/simulation.py", node: "dt_sim", what: "VehicleParams + Simulation.tick" },
+    { path: "Src/DT/Simulation/state.py", node: "dt_state", what: "13-state vector, DCM, Euler, LLA helpers" },
+    { path: "Src/DT/Simulation/constants.py", node: "s_aero", what: "g = 9.80665 and G_NED" },
+    { path: "Src/DT/Simulation/flight_controller/ardupilot_sitl_connector.py", node: "dt_link", what: "ArduPilot JSON-backend UDP protocol" },
+    { path: "Src/DT/Simulation/drone_plant/motor_force_moments.py", node: "s_motor", what: "PWM→throttle, motor lag, thrust and moment" },
+    { path: "Src/DT/Simulation/drone_plant/ground_contact.py", node: "s_ground", what: "Spring-damper ground model" },
+    { path: "Src/DT/Simulation/drone_plant/dryden_turbulence.py", node: "s_dryden", what: "Dryden gust + mean wind" },
+    { path: "Src/DT/Simulation/drone_plant/environment_aero.py", node: "s_aero", what: "Quadratic drag and gravity" },
+    { path: "Src/DT/Simulation/drone_plant/sixdof_quaternion.py", node: "s_rk4", what: "RK4 rigid-body integrator" },
+    { path: "Src/DT/Simulation/visualisation/telemetry_pub.py", node: "dt_tpub", what: "ZMQ PUB telemetry" },
+    { path: "Src/DT/Simulation/visualisation/logger.py", node: "dt_log", what: "CSV run log" },
+    { path: "Src/DT/Simulation/visualisation/viz3d.py", node: "dt_viz", what: "Optional matplotlib 3D window" },
+    { path: "Src/DT/config/startup_config.json", node: "cfg_startup", what: "Twin settings (sim rate, wind, telemetry, initial state …)" },
+    { path: "Src/DT/config/drone_config_variables/generic_quad.json", node: "cfg_drone", what: "Airframe, rotors, ground contact" },
+    { path: "Src/DT/config/drone_sim_param_files/*.parm", node: "cfg_parm", what: "ArduPilot parameter files (EKF3 vs ground truth)" },
+    { path: "Src/database/Motor_battery_database.sqlite", node: "db_file", what: "Motor curves and batteries" },
+    { path: "Src/database/build_db.py", node: "db_seed", what: "Seeds the database if missing" },
+    { path: "Src/database/design_config_tool_import/", node: "db_sim", what: "NumPy loader + pickle cache used by the physics" },
+    { path: "Src/Design-config-tool/db_api.py · db_schema.py · db_loader.py", node: "db_dc", what: "Dictionary-style DB access for design tool and GUI lists" },
+    { path: "Src/Design-config-tool/flight_time/flight_time_calc.py", node: "dc_calc", what: "Flight-time calculation + CLI" },
+    { path: "Src/Design-config-tool/drone_config.json", node: "cfg_dcfg", what: "CLI default parameters" },
+    { path: "Src/Propulsion-model/aerodynamic_model/motor.py", node: "pm_motor", what: "DC motor equilibrium solver + CLI" },
+    { path: "Src/Propulsion-model/aerodynamic_model/single_rotor.py", node: "pr_solve", what: "BEMT rotor solver" },
+    { path: "Src/Propulsion-model/aerodynamic_model/geometry.py", node: "pr_geo", what: "APC blade-geometry lookup" },
+    { path: "Src/Propulsion-model/aerodynamic_model/airfoil.py", node: "pr_air", what: "NeuralFoil polars with caches" },
+    { path: "Src/Propulsion-model/aerodynamic_model/atmosphere.py", node: "pr_atm", what: "Sea-level constants, ISA class" },
+    { path: "Src/Propulsion-model/aerodynamic_model/pyBEMT/", node: "pr_bemt", what: "Git submodule (upstream pyBEMT)" },
+    { path: "Src/Propulsion-model/analysis_scripts/single_rotor_analysis.py", node: "pm_cli", what: "Rotor CLI with sweeps and plots" },
+    { path: "Src/Propulsion-model/data/apc_geo/", node: "pm_apc", what: "APC .PE0 performance files" },
+    { path: "setup/setup.bat · setup.sh · requirements.txt", node: "tl_setup", what: "Installer scripts and Python packages" },
+    { path: "tests/ · Src/Propulsion-model/tests/", node: "tl_tests", what: "pytest suites" },
+    { path: "Lua-scripts-fault-journal-paper/", node: "tl_lua", what: "ArduPilot Lua fault-injection scripts + mission" },
+    { path: "README.md · README-Docs/", node: "tl_docs", what: "Documentation and these explorer pages" },
+    { path: "Results/ (git-ignored)", node: "results", what: "run.csv and gui_state.json" },
+    { path: ".venv/ (git-ignored)", node: "st_venv", what: "Python environment created by setup" }
+  ]
+};
+
+
+/* =============================================================================
+ * RENDERER — no content below this line
+ * ========================================================================== */
+const N = MODEL.nodes, E = MODEL.edges;
+const parent = {};
+for (const [id, n] of Object.entries(N)) for (const c of (n.children || [])) parent[c] = id;
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const ancestors = id => { const a = []; while (id) { a.push(id); id = parent[id]; } return a; }; // self → root
+const domOf = id => { for (const a of ancestors(id)) if (N[a].dom) return N[a].dom; return "data"; };
+const within = (id, top) => ancestors(id).includes(top);
+const title = id => N[id] ? N[id].title : id;
+
+/* ---- integrity check (silent unless broken) ---- */
+function check() {
+  const errs = [], seen = {};
+  for (const [id, n] of Object.entries(N)) {
+    if (!n.title) errs.push(`node ${id}: missing title`);
+    for (const c of (n.children || [])) {
+      if (!N[c]) errs.push(`node ${id}: child '${c}' does not exist`);
+      if (seen[c]) errs.push(`node '${c}' has two parents (${seen[c]}, ${id})`);
+      seen[c] = id;
+    }
+    if (id !== "root" && !within(id, "root")) errs.push(`node '${id}' is not reachable from root`);
+  }
+  const ids = new Set();
+  E.forEach((e, i) => {
+    for (const k of ["from","to"]) if (!N[e[k]]) errs.push(`edge #${i} (${e.label||"seq"}): ${k} '${e[k]}' does not exist`);
+    if (e.from === e.to) errs.push(`edge #${i}: from == to`);
+    if (e.id) { if (ids.has(e.id)) errs.push(`duplicate edge id '${e.id}'`); ids.add(e.id); }
+  });
+  MODEL.traces.forEach(tr => tr.steps.forEach((t, i) => {
+    const w = `trace '${tr.id}' step ${i+1}`;
+    if (!N[t.level] || !N[t.level].children) errs.push(`${w}: level '${t.level}' is not a subsystem`);
+    if (t.edge && !ids.has(t.edge)) errs.push(`${w}: edge id '${t.edge}' not found`);
+    if (t.node && !N[t.node]) errs.push(`${w}: node '${t.node}' not found`);
+    if (t.node && N[t.level] && !within(t.node, t.level)) errs.push(`${w}: node '${t.node}' is not inside level '${t.level}'`);
+  }));
+  MODEL.repo.forEach(r => { if (!N[r.node]) errs.push(`repo row '${r.path}': node '${r.node}' does not exist`); });
+  if (errs.length) { const b = $("#banner"); b.style.display = "block"; b.textContent = "MODEL integrity check failed:\n" + errs.join("\n"); }
+}
+
+/* ---- edge lifting: resolve an endpoint to what is visible inside `cur` ---- */
+function lift(id, cur) {
+  const a = ancestors(id);
+  const i = a.indexOf(cur);
+  if (i > 0) return { kind:"in", id:a[i-1] };          // a child of cur (or deeper) → that child
+  if (i === 0) return { kind:"self" };                  // the opened block itself
+  // outside: name it by the nearest context level (sibling of cur or of an ancestor of cur)
+  for (const p of ancestors(cur).slice(1)) { const j = a.indexOf(p); if (j > 0) return { kind:"out", id:a[j-1] }; }
+  return { kind:"out", id:a[a.length-1] };
+}
+
+function levelGraph(cur) {
+  const kids = N[cur].children, wires = new Map(), inPorts = new Map(), outPorts = new Map();
+  E.forEach((e, idx) => {
+    const a = lift(e.from, cur), b = lift(e.to, cur);
+    let from, to;
+    if (a.kind === "in" && b.kind === "in") { if (a.id === b.id) return; from = a.id; to = b.id; }
+    else if (a.kind === "in" && b.kind !== "in") { if (b.kind === "self") return; to = "out:" + b.id; outPorts.set(b.id, 1); from = a.id; }
+    else if (b.kind === "in" && a.kind !== "in") { if (a.kind === "self") return; from = "in:" + a.id; inPorts.set(a.id, 1); to = b.id; }
+    // whole-block signals (endpoint is the opened block itself) wire to its frame
+    else if (a.kind === "self" && b.kind === "out") { from = "frame"; to = "out:" + b.id; outPorts.set(b.id, 1); }
+    else if (a.kind === "out" && b.kind === "self") { from = "in:" + a.id; inPorts.set(a.id, 1); to = "frame"; }
+    else return;
+    // one wire per direction per block pair, so every input and output has its own arrow
+    const key = from + ">" + to;
+    if (!wires.has(key)) wires.set(key, { from, to, edges: [] });
+    wires.get(key).edges.push(idx);
+  });
+  return { kids, wires: [...wires.values()], inPorts: [...inPorts.keys()], outPorts: [...outPorts.keys()] };
+}
+
+const short = t => t.length > 28 ? t.slice(0, 26) + "…" : t;
+
+/* ---- layout (ELK layered: In ports pinned left, Out ports pinned right, orthogonal wires) ---- */
+const FONT = '"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+const ctx2d = document.createElement("canvas").getContext("2d");
+const tw = (s, px, bold) => { ctx2d.font = `${bold ? "600 " : ""}${px}px ${FONT}`; return ctx2d.measureText(s).width; };
+const elk = new ELK();
+let wireList = [], showLabels = true, labelOverride = null;
+
+function wireText(w) {
+  const data = w.edges.map(i => E[i]).filter(e => !e.seq);
+  if (!showLabels || !data.length) return [];
+  if (data.length > 1) return [`${short(data[0].label)} (+${data.length-1})`];
+  const e0 = data[0]; return e0.port ? [short(e0.label), `${e0.transport} ${e0.port}`] : [short(e0.label)];
+}
+
+async function layout(cur) {
+  const g = levelGraph(cur); wireList = g.wires;
+  showLabels = labelOverride ?? g.wires.length <= 45;
+  const boxes = {};   // key -> { main, small, cls, port, sub }
+  g.inPorts.forEach((p, i) => boxes["in:" + p] = { main: title(p), small: `In${i+1}`, cls: "ioport", port: "in" });
+  g.outPorts.forEach((p, i) => boxes["out:" + p] = { main: title(p), small: `Out${i+1}`, cls: "ioport", port: "out" });
+  for (const c of g.kids) { const n = N[c], sub = !!(n.children && n.children.length);
+    boxes[c] = { main: n.title + (sub ? " ▸" : ""), small: n.sub, cls: domOf(c), sub }; }
+  // blocks grow with their wire count (like Simulink) so arrowheads get their own slot
+  const deg = {}; g.wires.forEach(w => { deg[w.to] = (deg[w.to] || [0, 0]); deg[w.to][0]++; deg[w.from] = (deg[w.from] || [0, 0]); deg[w.from][1]++; });
+  const mk = key => { const b = boxes[key], [di, dout] = deg[key] || [0, 0];
+    const w = Math.max(tw(b.main, 12, true), b.small ? tw(b.small, 10) : 0) + 28;
+    return { id: key, width: Math.ceil(Math.max(w, 96)), height: Math.max(b.small ? 46 : 32, 16 * Math.max(di, dout) + 14),
+      layoutOptions: b.port ? { "elk.layered.layering.layerConstraint": b.port === "in" ? "FIRST" : "LAST" } : {} }; };
+  const framed = cur !== "root";
+  const kids = g.kids.map(mk), ports = Object.keys(boxes).filter(k => boxes[k].port).map(mk);
+  const edges = g.wires.map((w, wi) => { const t = wireText(w);
+    return { id: "w" + wi, sources: [w.from], targets: [w.to],
+      labels: t.length ? [{ text: t.join("\n"), width: Math.ceil(Math.max(...t.map((s, j) => tw(s, j ? 9 : 10)))) + 12, height: 14 * t.length + 5 }] : [] }; });
+  const opts = {
+    "elk.algorithm": "layered", "elk.direction": "RIGHT", "elk.edgeRouting": "ORTHOGONAL",
+    "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+    "elk.spacing.nodeNode": "28", "elk.layered.spacing.nodeNodeBetweenLayers": "70",
+    "elk.spacing.edgeNode": "18", "elk.spacing.edgeEdge": "12",
+    "elk.layered.spacing.edgeNodeBetweenLayers": "22", "elk.layered.spacing.edgeEdgeBetweenLayers": "12",
+    "elk.spacing.edgeLabel": "4", "elk.edgeLabels.placement": "CENTER",
+    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+    "elk.layered.crossingMinimization.thoroughness": "30",
+    "elk.layered.mergeEdges": "false", "elk.padding": "[top=16,left=16,bottom=16,right=16]" };
+  const graph = { id: "root", layoutOptions: opts, edges,
+    children: framed ? [...ports, { id: "frame", layoutOptions: { "elk.padding": "[top=40,left=28,bottom=28,right=28]" }, children: kids }] : kids };
+  return { res: await elk.layout(graph), boxes, framed };
+}
+
+function svgOf({ res, boxes, framed }) {
+  const pal = d => MODEL.domains[d][dark ? "dark" : "light"];
+  const abs = {};   // node id -> absolute {x,y,w,h}
+  const walk = (n, ox, oy) => (n.children || []).forEach(c => { const x = ox + c.x, y = oy + c.y;
+    abs[c.id] = { x, y, w: c.width, h: c.height }; walk(c, x, y); });
+  walk(res, 0, 0); abs.root = { x: 0, y: 0 };
+  // number ports top-to-bottom, like Simulink
+  for (const dir of ["in", "out"]) Object.keys(boxes).filter(k => boxes[k].port === dir).sort((a, b) => abs[a].y - abs[b].y)
+    .forEach((k, i) => boxes[k].small = `${dir === "in" ? "In" : "Out"}${i + 1}`);
+  const o = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${res.width} ${res.height}">`,
+    `<defs><marker id="ah" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path class="ah" d="M0,0 L10,3.5 L0,7 z"/></marker>`,
+    `<marker id="ahl" viewBox="0 0 10 7" refX="9" refY="3.5" markerWidth="10" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path class="ahl" d="M0,0 L10,3.5 L0,7 z"/></marker></defs>`];
+  if (framed) { const f = abs.frame;
+    const ft = `${esc(title(cur))} — inside`;
+    o.push(`<g class="frame"><rect class="fr" x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="12"/><rect class="fm" x="${f.x + 8}" y="${f.y + 8}" width="${Math.ceil(tw(title(cur) + " — inside", 11, true)) + 12}" height="19" rx="3"/><text x="${f.x + 14}" y="${f.y + 22}">${ft}</text></g>`); }
+  // wires first so blocks sit on top of them
+  const labels = [];
+  res.edges.forEach((e, wi) => {
+    const c = abs[e.container || "root"] || abs.root, pts = [];
+    for (const s of e.sections || []) { pts.push(s.startPoint, ...(s.bendPoints || []), s.endPoint); }
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${(c.x + p.x).toFixed(1)},${(c.y + p.y).toFixed(1)}`).join(" ");
+    const isSeq = wireList[wi].edges.every(i => E[i].seq);
+    o.push(`<g class="wg" data-wire="${wi}"><path class="hit" d="${d}"/><path class="wire${isSeq ? " seq" : ""}" d="${d}" marker-end="url(#ah)"/></g>`);
+    for (const l of e.labels || []) { const lines = l.text.split("\n"), x = c.x + l.x, y = c.y + l.y;
+      labels.push(`<g class="edgeLabel" data-wire="${wi}"><rect x="${x}" y="${y}" width="${l.width}" height="${l.height}" rx="3"/>`
+        + lines.map((s, j) => `<text x="${x + l.width / 2}" y="${y + 12 + 14 * j}" class="${j ? "lt" : "lm"}">${esc(s)}</text>`).join("") + `</g>`); }
+  });
+  for (const [key, b] of Object.entries(boxes)) { const a = abs[key]; if (!a) continue;
+    const [fill, stroke] = pal(b.cls), cx = a.x + a.w / 2;
+    const rx = b.port ? a.h / 2 : b.sub ? 4 : 6;
+    const t = b.port ? [[b.small, "ns"], [b.main, "nm"]] : [[b.main, "nm"], ...(b.small ? [[b.small, "ns"]] : [])];
+    const y0 = a.y + a.h / 2 - (t.length - 1) * 7.5 + 4;
+    o.push(`<g class="node${b.sub ? " sub" : ""}${b.port ? " port" : ""}" data-key="${esc(key)}"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="${rx}" style="fill:${fill};stroke:${stroke}"/>`
+      + t.map(([s, cl], j) => `<text x="${cx}" y="${y0 + 15 * j}" class="${cl}">${esc(s)}</text>`).join("") + `</g>`);
+  }
+  o.push(...labels, "</svg>");
+  return o.join("");
+}
+
+/* ---- render a level ---- */
+let cur = "root", renderSeq = 0, hilite = null;
+async function render(id) {
+  cur = id; const seq = ++renderSeq;
+  crumbs();
+  let svg;
+  try { svg = svgOf(await layout(id)); }
+  catch (err) { $("#canvas").innerHTML = `<pre>${esc(err.stack || err)}</pre>`; return; }
+  if (seq !== renderSeq) return;
+  crumbs();   // showLabels is decided during layout
+  $("#canvas").innerHTML = svg;
+  zoom = "fit"; applyZoom();
+  bind();
+  const h = hilite; hilite = null;   // one-shot: back/forward never replays a trace step
+  if (h) applyHilite(h); else showNode(id);
+}
+
+function bind() {
+  const root = $("#canvas svg");
+  root.querySelectorAll("g.node").forEach(el => {
+    const key = el.dataset.key;
+    if (key.startsWith("in:") || key.startsWith("out:")) { el.addEventListener("click", () => { hilite = null; showPort(key); }); return; }
+    el.addEventListener("click", () => { hilite = null; if (N[key].children) go(key); else showNode(key); });
+  });
+  root.querySelector("g.frame")?.addEventListener("click", () => { hilite = null; showNode(cur); });
+  root.querySelectorAll("[data-wire]").forEach(el => el.addEventListener("click", () => { hilite = null; showWire(+el.dataset.wire); }));
+  // hovering a wire or its label lights up both
+  root.querySelectorAll("[data-wire]").forEach(el => {
+    const all = () => root.querySelectorAll(`[data-wire="${el.dataset.wire}"]`);
+    el.addEventListener("mouseenter", () => all().forEach(x => x.classList.add("hov")));
+    el.addEventListener("mouseleave", () => all().forEach(x => x.classList.remove("hov")));
+  });
+}
+
+/* ---- zoom: fit to canvas width, or natural size × factor ---- */
+let zoom = "fit";
+function applyZoom() {
+  const svg = $("#canvas svg"); if (!svg) return;
+  const w = svg.viewBox.baseVal.width, box = $("#canvas").clientWidth - 32;
+  // ponytail: fit never shrinks below 0.8 so text stays legible; big levels scroll instead
+  const f = zoom === "fit" ? Math.max(0.8, Math.min(1.2, box / w)) : zoom;
+  svg.style.width = (w * f) + "px"; svg.style.maxWidth = "none"; svg.removeAttribute("height");
+}
+function zoomBy(k) { const svg = $("#canvas svg"); if (!svg) return;
+  const cur = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width; zoom = Math.max(0.2, Math.min(3, cur * k)); applyZoom(); }
+
+function go(id) { labelOverride = null; if (location.hash.slice(1) !== id) location.hash = id; else render(id); }
+
+function crumbs() {
+  const chain = ancestors(cur).reverse();
+  $("#crumbs").innerHTML = chain.map((id, i) => i === chain.length - 1
+    ? `<b>${esc(title(id))}</b>` : `<a data-go="${id}">${esc(title(id))}</a><span class="sep">›</span>`).join(" ")
+    + `<span class="up">${cur !== "root" ? `<button class="small" data-go="${parent[cur]}">▲ Up one level</button> ` : `<span class="hint">Click a ▸ block to open it · click a wire for its signals</span> `}`
+    + `<button class="small" id="lbl">${showLabels ? "Hide" : "Show"} signal names</button> <button class="small" data-z="0.8">−</button> <button class="small" data-z="fit">Fit</button> <button class="small" data-z="1.25">+</button></span>`;
+  $("#lbl").onclick = () => { labelOverride = !showLabels; render(cur); };
+  $("#crumbs").querySelectorAll("[data-z]").forEach(b => b.onclick = () => b.dataset.z === "fit" ? (zoom = "fit", applyZoom()) : zoomBy(+b.dataset.z));
+  $("#crumbs").querySelectorAll("[data-go]").forEach(a => a.onclick = () => { hilite = null; go(a.dataset.go); });
+}
+
+/* ---- side panel ---- */
+function sigHTML(e, dir) {
+  if (e.seq) return "";
+  const other = dir === "in" ? e.from : e.to;
+  const kv = [e.transport, e.port && `port ${e.port}`, e.rate].filter(Boolean).map(esc).join(" · ");
+  return `<div class="sig"><b>${esc(e.label)}</b><span class="kv">${dir === "in" ? "from" : dir === "out" ? "to" : ""} ${dir ? esc(title(other)) : esc(title(e.from)) + " → " + esc(title(e.to))}</span>
+    ${kv ? `<div class="kv">${kv}</div>` : ""}${e.src ? `<div class="kv">source: <code>${esc(e.src)}</code></div>` : ""}</div>`;
+}
+function showNode(id) {
+  const n = N[id], ins = [], outs = [];
+  for (const e of E) {
+    const fi = within(e.from, id), ti = within(e.to, id);
+    if (ti && !fi) ins.push(e); if (fi && !ti) outs.push(e);
+  }
+  $("#panel").innerHTML = `<h2>${esc(n.title)}</h2>${n.sub ? `<div class="sub">${esc(n.sub)}</div>` : ""}
+    <div>${esc(n.summary || "")}</div>
+    ${n.children && id !== cur ? `<p><button class="small" id="open">Open ▸</button></p>` : ""}
+    ${n.files ? `<h3>Files</h3>${n.files.map(f => `<span class="chip">${esc(f)}</span>`).join("")}` : ""}
+    ${n.gotchas ? `<h3>Gotchas</h3>${n.gotchas.map(g => `<div class="gotcha">${esc(g)}</div>`).join("")}` : ""}
+    ${ins.filter(e => !e.seq).length ? `<h3>Inputs (${ins.filter(e => !e.seq).length})</h3>${ins.map(e => sigHTML(e, "in")).join("")}` : ""}
+    ${outs.filter(e => !e.seq).length ? `<h3>Outputs (${outs.filter(e => !e.seq).length})</h3>${outs.map(e => sigHTML(e, "out")).join("")}` : ""}`;
+  const o = $("#open"); if (o) o.onclick = () => go(id);
+}
+function showWire(wi) {
+  const w = wireList[wi]; if (!w) return;
+  const name = k => k === "frame" ? title(cur) + " (whole block)" : k.startsWith("in:") || k.startsWith("out:") ? title(k.split(":")[1]) : title(k);
+  const es = w.edges.map(i => E[i]).filter(e => !e.seq);
+  $("#panel").innerHTML = `<h2>Wire</h2><div class="sub">${esc(name(w.from))} → ${esc(name(w.to))}</div>
+    ${es.length ? `<h3>Signals (${es.length})</h3>${es.map(e => sigHTML(e)).join("")}` : `<p class="hint">Execution order: the left step runs before the right one, every tick.</p>`}`;
+}
+function showPort(key) {
+  const [dir, id] = key.split(":");
+  const es = E.filter(e => !e.seq && (dir === "in" ? within(e.from, id) && within(e.to, cur) : within(e.to, id) && within(e.from, cur)));
+  $("#panel").innerHTML = `<h2>${dir === "in" ? "Input port" : "Output port"}</h2>
+    <div class="sub">${dir === "in" ? "Signals entering" : "Signals leaving"} <b>${esc(title(cur))}</b> ${dir === "in" ? "from" : "to"} <b>${esc(title(id))}</b></div>
+    <p><button class="small" id="open">Go to ${esc(title(id))}</button></p>
+    ${es.map(e => sigHTML(e)).join("")}`;
+  $("#open").onclick = () => { hilite = null; go(parent[id] || "root"); setTimeout(() => showNode(id), 50); };
+}
+
+/* ---- highlight (trace) ---- */
+function applyHilite(h) {
+  const svg = $("#canvas svg"); if (!svg) return;
+  if (h.edge) {
+    const idx = E.findIndex(e => e.id === h.edge);
+    const wi = wireList.findIndex(w => w.edges.includes(idx));
+    svg.querySelectorAll(`[data-wire="${wi}"]`).forEach(el => el.classList.contains("wg")
+      ? (el.classList.add("hl-edge"), el.querySelector(".wire").setAttribute("marker-end", "url(#ahl)")) : el.classList.add("hl-label"));
+    showWire(wi);
+  }
+  if (h.node) {
+    const key = ancestors(h.node).find(a => parent[a] === cur) || h.node;
+    svg.querySelectorAll(`g.node[data-key="${key}"]`).forEach(el => el.classList.add("hl-node"));
+    showNode(h.node);
+  }
+  if (!h.text) return;   // plain "jump to block" (repo map): no step box
+  const box = $("#panel"), steps = MODEL.traces[h.tr].steps;
+  box.insertAdjacentHTML("afterbegin", `<div class="sig" style="border-color:var(--hl)"><b>${esc(MODEL.traces[h.tr].title)} — step ${h.step + 1} of ${steps.length}</b>${esc(h.text)}
+    <div style="margin-top:6px">${h.step > 0 ? `<button class="small" id="tprev">◂ Prev</button> ` : ""}${h.step < steps.length - 1 ? `<button class="small" id="tnext">Next ▸</button>` : ""}</div></div>`);
+  const p = $("#tprev"), n = $("#tnext");
+  if (p) p.onclick = () => runStep(h.tr, h.step - 1); if (n) n.onclick = () => runStep(h.tr, h.step + 1);
+}
+function navTo(level) { tab("diagram"); if (location.hash.slice(1) === level) render(level); else location.hash = level; }
+function runStep(ti, i) {
+  const t = MODEL.traces[ti].steps[i]; hilite = { ...t, tr: ti, step: i };
+  navTo(t.level);
+}
+// repo map → show the block inside its parent level, highlighted
+function jump(id) { hilite = { node: id }; navTo(parent[id] || "root"); }
+
+/* ---- other views ---- */
+function buildTrace() {
+  $("#trace").innerHTML = `<h2>Follow a run</h2><p class="hint">Two walk-throughs of the same system: how a run starts, and what happens inside one physics frame. Click a step to jump to that level of the diagram with the relevant block or wire highlighted.</p>`
+    + MODEL.traces.map((tr, ti) => `<h3 class="tr-h">${String.fromCharCode(65 + ti)} · ${esc(tr.title)}</h3><p class="hint">${esc(tr.intro)}</p>`
+      + tr.steps.map((t, i) => `<div class="trace-step" data-t="${ti}" data-i="${i}"><span class="n">${i + 1}</span>${esc(t.text)} <span class="hint">— ${esc(title(t.level))}</span></div>`).join("")).join("");
+  $("#trace").querySelectorAll(".trace-step").forEach(d => d.onclick = () => runStep(+d.dataset.t, +d.dataset.i));
+}
+function buildRepo() {
+  $("#repo").innerHTML = `<h2>Repo map</h2><p class="hint">Where each folder or file lives in the block diagram. Click a block name to jump to it.</p>
+    <table><tr><th>Path</th><th>Block</th><th>What it does</th></tr>`
+    + MODEL.repo.map(r => `<tr><td><code>${esc(r.path)}</code></td><td><a class="jump" data-id="${r.node}">${esc(title(r.node))}</a></td><td>${esc(r.what)}</td></tr>`).join("") + "</table>";
+  $("#repo").querySelectorAll(".jump").forEach(a => a.onclick = () => jump(a.dataset.id));
+}
+function buildPorts() {
+  const rows = E.filter(e => e.port).sort((a, b) => parseInt(a.port) - parseInt(b.port));
+  $("#ports").innerHTML = `<h2>Port map</h2><p class="hint">Generated from the diagram's wires — every network port in the system. The 8080 rows double as the GUI's API route list.</p>
+    <table><tr><th>Port</th><th>Transport</th><th>From → To</th><th>Signal</th><th>Rate</th><th>Source</th></tr>`
+    + rows.map(e => `<tr><td><code>${esc(e.port)}</code></td><td>${esc(e.transport || "")}</td><td>${esc(title(e.from))} → ${esc(title(e.to))}</td><td>${esc(e.label)}</td><td>${esc(e.rate || "")}</td><td>${e.src ? `<code>${esc(e.src)}</code>` : ""}</td></tr>`).join("") + "</table>";
+}
+function tab(v) {
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+}
+
+/* ---- boot ---- */
+const m = MODEL.meta;
+$("#meta").innerHTML = `Simulink-style map of how the KTP-DT repo and simulator work — layout is automatic. v${m.version} · verified against <code>${m.repo}</code> · ${m.updated}. If the code has moved on since, trust the code.`;
+$("#legend").innerHTML = Object.values(MODEL.domains).map(d => `<span><i style="background:${d[dark ? "dark" : "light"][0]};border-color:${d[dark ? "dark" : "light"][1]}"></i>${esc(d.name)}</span>`).join("")
+  + `<span>▸ thick border = subsystem (click to open)</span><span>dashed arrow = execution order</span><span>In ports left · Out ports right · one arrow per direction</span>`;
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => tab(b.dataset.v));
+check(); buildTrace(); buildPorts(); buildRepo();
+window.addEventListener("resize", () => { if (zoom === "fit") applyZoom(); });
+window.addEventListener("hashchange", () => { const id = location.hash.slice(1) || "root"; render(N[id] && N[id].children ? id : "root"); });
+// wait for the mono web font so block widths are measured with it
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { const id = location.hash.slice(1); render(N[id] && N[id].children ? id : "root"); });
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "name": "generic_quad",
+  "imu_count": 2,
+  "airframe": {
+    "mass": 1.453,
+    "inertia_cad_kgmm2": {
+      "Ixx": 15433.63415,
+      "Ixy": -263.93438,
+      "Ixz": 721.63465,
+      "Iyy": 15706.88977,
+      "Iyz": -8.0688,
+      "Izz": 28181.40083
+    },
+    "cg": [-1.87537, -0.22499, 1.34806],
+    "cg_ground_offset": 132.72809,
+    "drag_cd": [1.0, 1.0, 1.2],
+    "drag_cd_moment": [0.0, 0.0, 0.0],
+    "drag_reference_area": 0.159043128087983,
+    "surface_area_xyz": [0.030042674, 0.030042674, 0.034492323]
+  },
+  "rotors": {
+    "control": [
+      {
+        "pwm_ch": 1,
+        "arm_pos_centroid": [ 155.36434,  155.36434, -60.64981],
+        "spin_dir": 1,
+        "motor_name": "AIR2216 KV920 -10*4.5"
+      },
+      {
+        "pwm_ch": 4,
+        "arm_pos_centroid": [-155.36434,  155.36434, -60.64981],
+        "spin_dir": -1,
+        "motor_name": "AIR2216 KV920 -10*4.5"
+      },
+      {
+        "pwm_ch": 2,
+        "arm_pos_centroid": [-155.36434, -155.36434, -60.64981],
+        "spin_dir": 1,
+        "motor_name": "AIR2216 KV920 -10*4.5"
+      },
+      {
+        "pwm_ch": 3,
+        "arm_pos_centroid": [ 155.36434, -155.36434, -60.64981],
+        "spin_dir": -1,
+        "motor_name": "AIR2216 KV920 -10*4.5"
+      }
+    ]
+  },
+  "battery": {
+    "name": "4S Lion 7000mAh - BBL (Flat)",
+    "quantity": 1,
+    "avionics_power_w": 50.0
+  },
+  "rotor_aero": {
+    "blades": 2,
+    "prop_size_in": 10,
+    "prop_pitch_in": 4.5,
+    "Ct": 0.128,
+    "chord_m": 0.02885,
+    "blade_mass_kg": 0.00635
+  },
+  "pwm": {
+    "min": 1000,
+    "max": 2000
+  },
+  "ground_contact": {
+    "k_spring": 500.0,
+    "c_damp": 50.0,
+    "mu_friction": 0.8,
+    "k_lat_damp": 40.0,
+    "k_rot_damp": 5.0
+  }
+}

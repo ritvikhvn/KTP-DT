@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.nbc
+*.nbi
+*.pkl
+data/polars_cache/
+.venv/
+.env
+Results/
+run.bat
+run.sh
+.claude/
+*.log
+*.egg-info/
+/
